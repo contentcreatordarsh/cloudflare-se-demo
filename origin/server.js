@@ -1,119 +1,181 @@
-// SiamPay Request Inspector — origin web server.
-// Zero dependencies. Listens on 127.0.0.1 only; Nginx (TLS) and cloudflared sit in front.
+// SiamPay Edge Console — origin web server.
+// Zero dependencies. Listens on 127.0.0.1 only; Nginx (TLS, public 443) and cloudflared (Tunnel) sit in front.
 const http = require("http");
+const fs = require("fs");
+const path = require("path");
+const tls = require("tls");
+const { X509Certificate } = require("crypto");
+const ui = require("./ui");
 
 const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || "127.0.0.1";
+const CERT_PATH = process.env.CERT_PATH || "/etc/ssl/siampay/fullchain.pem";
+const TUNNEL_READY_URL = process.env.TUNNEL_READY_URL || "http://127.0.0.1:20241/ready";
+const EDGE_HOST = process.env.EDGE_HOST || "app.strikemap.space";
+const FLAGS_DIR = process.env.FLAGS_DIR || path.join(__dirname, "flags");
+const STARTED = Date.now();
 
-const escapeHtml = (v) =>
-  String(v)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+/* ---------- live state, refreshed in the background (requests never wait on it) ---------- */
+const state = { originCert: null, edgeCert: null, tunnel: null };
 
-// Headers Cloudflare adds or rewrites on the way to the origin — highlighted in the UI.
-const CF_HEADERS = new Set([
-  "cf-connecting-ip", "cf-ipcountry", "cf-ray", "cf-visitor", "cdn-loop",
-  "x-forwarded-for", "x-forwarded-proto", "x-real-ip", "true-client-ip",
-  "cf-warp-tag-id", "cf-access-jwt-assertion", "cf-access-authenticated-user-email",
-]);
-
-const page = (title, body) => `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)}</title>
-<style>
-  :root { --bg:#0f1115; --card:#181b22; --line:#2a2f3a; --fg:#e8eaf0; --muted:#9aa3b2; --accent:#f6821f; --ok:#3fb950; --bad:#f85149; }
-  * { box-sizing: border-box; }
-  body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
-  .wrap { max-width:1040px; margin:0 auto; padding:40px 16px; }
-  h1 { margin:0 0 4px; font-size:28px; } h2 { margin:0 0 8px; font-size:18px; }
-  .sub { color:var(--muted); margin:0 0 28px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
-  .card p { color:var(--muted); margin:0 0 12px; }
-  a { color:var(--accent); } code { background:#232733; padding:2px 6px; border-radius:4px; font-size:13px; }
-  button { background:var(--accent); color:#111; border:0; border-radius:8px; padding:10px 14px; font-weight:600; cursor:pointer; }
-  table { width:100%; border-collapse:collapse; margin-top:12px; }
-  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; word-break:break-all; }
-  th { color:var(--muted); font-weight:600; }
-  tr.cf td:first-child { color:var(--accent); font-weight:600; }
-  .log { font-family:ui-monospace,Menlo,monospace; font-size:13px; margin-top:12px; white-space:pre-line; }
-  .ok { color:var(--ok); } .bad { color:var(--bad); }
-</style>
-</head>
-<body><div class="wrap">${body}</div></body>
-</html>`;
-
-function dashboard(req) {
-  const country = req.headers["cf-ipcountry"] || "unknown";
-  const ray = req.headers["cf-ray"] || "not proxied";
-  return page("SiamPay Edge Console", `
-    <h1>SiamPay Edge Console</h1>
-    <p class="sub">Fictional Thai fintech · origin on AWS EC2 (ap-southeast-1) · delivered through Cloudflare<br>
-      This request: <code>cf-ray ${escapeHtml(ray)}</code> · country <code>${escapeHtml(country)}</code></p>
-    <div class="grid">
-      <div class="card"><h2>Request Inspector</h2>
-        <p>Partners debug integrations by seeing exactly what reached our origin.</p>
-        <a href="/headers">Inspect my request →</a></div>
-      <div class="card"><h2>Full (strict) TLS</h2>
-        <p>Browser → Cloudflare → origin is HTTPS end to end, validated against a Let's Encrypt certificate.</p></div>
-      <div class="card"><h2>Rate limiting</h2>
-        <p>Bursts against <code>/headers</code> are blocked at the edge before they reach the origin.</p>
-        <button id="rl">Send 15 requests</button>
-        <div class="log" id="log"></div></div>
-      <div class="card"><h2>Staff portal</h2>
-        <p>Internal tool behind Cloudflare Tunnel + Access. No inbound ports, identity-aware.</p>
-        <a href="https://tunnel.strikemap.space/secure">Open secure portal →</a></div>
-    </div>
-    <script>
-      document.getElementById("rl").onclick = async () => {
-        const log = document.getElementById("log"); log.textContent = "";
-        for (let i = 1; i <= 15; i++) {
-          const r = await fetch("/headers?burst=" + i, { cache: "no-store" });
-          const line = document.createElement("div");
-          line.className = r.status === 200 ? "ok" : "bad";
-          line.textContent = "Request " + i + " → " + r.status;
-          log.appendChild(line);
-        }
-      };
-    </script>`);
+const dn = (s) => Object.fromEntries(String(s || "").split("\n").map((l) => l.split("=")).filter((p) => p.length >= 2).map(([k, ...v]) => [k, v.join("=")]));
+function describeCert(x) {
+  const issuer = dn(x.issuer), subject = dn(x.subject);
+  const from = new Date(x.validFrom), to = new Date(x.validTo);
+  const details = x.publicKey.asymmetricKeyDetails || {};
+  return {
+    subjectCN: subject.CN || x.subject,
+    san: (x.subjectAltName || "").replaceAll("DNS:", ""),
+    issuerOrg: issuer.O || x.issuer,
+    issuerCN: issuer.CN || "",
+    validFrom: from.toISOString(),
+    validTo: to.toISOString(),
+    daysLeft: Math.floor((to - Date.now()) / 86400000),
+    totalDays: Math.round((to - from) / 86400000),
+    keyType: x.publicKey.asymmetricKeyType,
+    curve: details.namedCurve,
+    bits: details.modulusLength,
+    serial: x.serialNumber,
+    fingerprint: x.fingerprint256,
+  };
 }
 
-function headersPage(req) {
-  const rows = Object.entries(req.headers)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `<tr class="${CF_HEADERS.has(k) ? "cf" : ""}"><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`)
-    .join("");
-  return page("Request headers", `
-    <h1>HTTP request headers</h1>
-    <p class="sub">Exactly what the origin received. Highlighted headers were added by Cloudflare.
-      <a href="/">← back</a> · <a href="/headers?format=json">JSON</a></p>
-    <div class="card"><table><thead><tr><th>Header</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+function refreshOriginCert() {
+  try { state.originCert = describeCert(new X509Certificate(fs.readFileSync(CERT_PATH))); }
+  catch { state.originCert = null; }
 }
+
+// Connect to our own hostname through Cloudflare to read the edge (browser-facing) certificate.
+function refreshEdgeCert() {
+  const sock = tls.connect({ host: EDGE_HOST, port: 443, servername: EDGE_HOST, timeout: 5000 }, () => {
+    try { state.edgeCert = { ...describeCert(sock.getPeerX509Certificate()), protocol: sock.getProtocol() }; } catch {}
+    sock.end();
+  });
+  sock.on("error", () => {});
+  sock.on("timeout", () => sock.destroy());
+}
+
+// cloudflared exposes readiness (active edge connections) on its local metrics port.
+async function refreshTunnel() {
+  try {
+    const r = await fetch(TUNNEL_READY_URL, { signal: AbortSignal.timeout(1500) });
+    const j = await r.json();
+    state.tunnel = { ready: Number(j.readyConnections) || 0, connector: j.connectorId || null };
+  } catch { state.tunnel = null; }
+}
+
+refreshOriginCert(); refreshEdgeCert(); refreshTunnel();
+setInterval(refreshOriginCert, 10 * 60 * 1000).unref();
+setInterval(refreshEdgeCert, 60 * 60 * 1000).unref();
+setInterval(refreshTunnel, 15 * 1000).unref();
+
+function health() {
+  const up = Math.round((Date.now() - STARTED) / 1000);
+  const upText = up < 3600 ? `${Math.floor(up / 60)}m` : `${Math.floor(up / 3600)}h ${Math.floor((up % 3600) / 60)}m`;
+  const c = state.originCert, t = state.tunnel;
+  const checks = [
+    { name: "Origin app", ok: true, detail: `Node.js ${process.version} · up ${upText}` },
+    { name: "Cloudflare Tunnel", ok: !!t && t.ready > 0, detail: t ? `${t.ready} edge connections` : "cloudflared not reachable" },
+    { name: "Origin certificate", ok: !!c && c.daysLeft > 7, detail: c ? `${c.issuerOrg} · ${c.daysLeft} days left` : "not readable" },
+  ];
+  return { healthy: checks.every((x) => x.ok), checks };
+}
+
+/* ---------- request log (what actually reached the origin) ---------- */
+const LOG = [];
+const LOG_MAX = 100;
+const QUIET = new Set(["/healthz", "/logs.json", "/status.json", "/favicon.svg", "/favicon.ico"]);
+
+/* ---------- flags for the header country chip ---------- */
+let FLAGS = new Set();
+try { FLAGS = new Set(fs.readdirSync(FLAGS_DIR).filter((f) => /^[a-z]{2}\.svg$/.test(f)).map((f) => f.slice(0, 2))); } catch {}
+
+function context(req, url) {
+  const h = req.headers;
+  const ray = h["cf-ray"] || null;
+  const colo = ray && ray.includes("-") ? ray.split("-").pop().toUpperCase() : null;
+  const country = /^[A-Za-z0-9]{2}$/.test(h["cf-ipcountry"] || "") ? h["cf-ipcountry"].toUpperCase() : null;
+  const host = (h.host || "").toLowerCase();
+  return {
+    ray, colo, country, host,
+    hasFlag: !!country && FLAGS.has(country.toLowerCase()),
+    ip: h["cf-connecting-ip"] || null,
+    via: !ray ? "direct" : host.startsWith("tunnel.") ? "tunnel" : "proxy",
+    tlsProto: h["x-origin-tls-protocol"] || null,
+    tlsCipher: h["x-origin-tls-cipher"] || null,
+    cert: state.originCert,
+    edgeCert: state.edgeCert,
+    tunnel: state.tunnel,
+    health: health(),
+    path: url.pathname,
+  };
+}
+
+const SECURITY_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "content-security-policy":
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+};
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://origin");
-  const send = (status, type, body) => {
-    res.writeHead(status, { "content-type": type, "cache-control": "no-store" });
+  const send = (status, type, body, extra = {}) => {
+    res.writeHead(status, { "content-type": type, "cache-control": "no-store", ...SECURITY_HEADERS, ...extra });
     res.end(body);
   };
+  const html = (status, body) => send(status, "text/html; charset=utf-8", body);
+  const json = (status, obj) => send(status, "application/json", JSON.stringify(obj, null, 2));
 
-  if (url.pathname === "/healthz") return send(200, "text/plain; charset=utf-8", "OK");
-
-  if (url.pathname === "/headers") {
-    const wantsJson = url.searchParams.get("format") === "json" || (req.headers.accept || "").startsWith("application/json");
-    if (wantsJson) return send(200, "application/json", JSON.stringify(req.headers, null, 2));
-    return send(200, "text/html; charset=utf-8", headersPage(req));
+  if (!QUIET.has(url.pathname) && !url.pathname.startsWith("/assets/")) {
+    res.on("finish", () => {
+      const ctx = { ray: req.headers["cf-ray"] || null };
+      LOG.unshift({
+        t: new Date().toISOString(),
+        host: (req.headers.host || "").slice(0, 60),
+        method: req.method,
+        path: (url.pathname + url.search).slice(0, 80),
+        status: res.statusCode,
+        ray: ctx.ray,
+        colo: ctx.ray && ctx.ray.includes("-") ? ctx.ray.split("-").pop() : null,
+        country: req.headers["cf-ipcountry"] || null,
+      });
+      if (LOG.length > LOG_MAX) LOG.length = LOG_MAX;
+    });
   }
 
-  if (url.pathname === "/") return send(200, "text/html; charset=utf-8", dashboard(req));
+  if (url.pathname === "/healthz") return send(200, "text/plain; charset=utf-8", "OK");
+  if (url.pathname === "/favicon.svg") return send(200, "image/svg+xml", ui.FAVICON, { "cache-control": "public, max-age=86400" });
 
-  send(404, "text/plain; charset=utf-8", "Not found");
+  const flag = url.pathname.match(/^\/assets\/flags\/([a-z]{2})\.svg$/);
+  if (flag) {
+    if (!FLAGS.has(flag[1])) return send(404, "text/plain; charset=utf-8", "Not found");
+    return send(200, "image/svg+xml", fs.readFileSync(path.join(FLAGS_DIR, `${flag[1]}.svg`)), { "cache-control": "public, max-age=86400" });
+  }
+
+  const ctx = context(req, url);
+
+  switch (url.pathname) {
+    case "/":
+      return html(200, ui.home(ctx));
+    case "/headers": {
+      const wantsJson = url.searchParams.get("format") === "json" || (req.headers.accept || "").startsWith("application/json");
+      return wantsJson ? json(200, req.headers) : html(200, ui.requests(ctx, req.headers));
+    }
+    case "/certificates":
+      return html(200, ui.certificates(ctx));
+    case "/logs":
+      return html(200, ui.logs(ctx, LOG));
+    case "/logs.json":
+      return json(200, LOG);
+    case "/status.json":
+      return json(200, { health: ctx.health, tunnel: state.tunnel, originCert: state.originCert, edgeCert: state.edgeCert });
+    case "/settings":
+      return html(200, ui.settings(ctx));
+    default:
+      return html(404, ui.notFound(ctx));
+  }
 });
 
 server.listen(PORT, HOST, () => console.log(`origin listening on ${HOST}:${PORT}`));

@@ -8,20 +8,24 @@ CERT_DIR=".secrets/le/config/live/app.strikemap.space"
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new ubuntu@$ORIGIN_IP"
 
 scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new \
-  origin/server.js origin/siampay.service origin/nginx-siampay.conf \
+  origin/server.js origin/ui.js origin/world-map.js origin/siampay.service origin/nginx-siampay.conf \
   "$CERT_DIR/fullchain.pem" "$CERT_DIR/privkey.pem" "ubuntu@$ORIGIN_IP:/tmp/"
+
+# Country flags for the console header (same set as the private R2 bucket)
+COPYFILE_DISABLE=1 tar --no-xattrs --no-mac-metadata -C r2 -czf - flags | $SSH 'rm -rf /tmp/flags && tar -C /tmp -xzf -'
 
 $SSH 'sudo bash -s' <<'REMOTE'
 set -euo pipefail
 test -f /var/lib/cloud/instance/siampay-bootstrap-done || { echo "bootstrap not finished yet"; exit 1; }
-install -o siampay -g siampay -m 0644 /tmp/server.js /opt/siampay/server.js
+for f in server.js ui.js world-map.js; do install -o siampay -g siampay -m 0644 "/tmp/$f" "/opt/siampay/$f"; done
+rm -rf /opt/siampay/flags && mv /tmp/flags /opt/siampay/flags && chown -R siampay:siampay /opt/siampay/flags
 install -m 0644 /tmp/siampay.service /etc/systemd/system/siampay.service
-install -d -m 0750 /etc/ssl/siampay
+install -d -m 0755 /etc/ssl/siampay   # fullchain is public; privkey stays 0600 root
 install -m 0644 /tmp/fullchain.pem /etc/ssl/siampay/fullchain.pem
 install -m 0600 /tmp/privkey.pem   /etc/ssl/siampay/privkey.pem
 install -m 0644 /tmp/nginx-siampay.conf /etc/nginx/sites-available/siampay
 ln -sf /etc/nginx/sites-available/siampay /etc/nginx/sites-enabled/siampay
-rm -f /tmp/server.js /tmp/siampay.service /tmp/fullchain.pem /tmp/privkey.pem /tmp/nginx-siampay.conf
+rm -f /tmp/server.js /tmp/ui.js /tmp/world-map.js /tmp/siampay.service /tmp/fullchain.pem /tmp/privkey.pem /tmp/nginx-siampay.conf
 systemctl daemon-reload
 systemctl enable --now siampay
 systemctl restart siampay

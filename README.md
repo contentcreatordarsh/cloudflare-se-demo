@@ -30,19 +30,34 @@ A fictional Thai fintech, **SiamPay**, runs a small origin on AWS and puts Cloud
  └───────────────────────────────────────────────────────────┘
 ```
 
+## The Edge Console (app.strikemap.space)
+
+A server-rendered console (zero runtime dependencies) where **every value is live** — nothing is mocked:
+
+| Page | What it shows | Live source |
+|---|---|---|
+| **Home** | Hero with this request's `cf-ray` + country, edge-network map, request path, four product cards | request headers, origin cert, cloudflared readiness |
+| **Requests** (`/headers`) | Every header the origin received, tagged by the hop that added it (Cloudflare / Nginx / Tunnel / browser) | the request itself — also the rate-limit target |
+| **Certificates** | Origin cert (Let's Encrypt, key, fingerprint, days left), edge cert, TLS on each hop | `X509Certificate` on disk, live TLS handshake to the edge, Nginx `$ssl_protocol` |
+| **Logs** | Requests that actually reached the origin (auto-refresh) | in-memory ring buffer on the origin |
+| **Settings** | Health checks + read-only Cloudflare/AWS configuration | cloudflared `/ready`, cert expiry |
+
+**Demo moment:** press **Send 15 requests** on the rate-limiting card → 5 green bars (200) then 10 orange (429 from the edge) → open **Logs**: only the 5 allowed requests ever reached the origin.
+
 ## Repository layout
 
 ```
-origin/     server.js (header-echo app, zero deps), nginx + systemd config, EC2 user-data
+origin/     server.js (routes + live data), ui.js (console UI), world-map.js (generated),
+            nginx + systemd config, EC2 user-data
 worker/     Wrangler project for the /secure Worker (Access JWT verification + R2)
 r2/flags/   257 country flag SVGs (flag-icons, MIT) uploaded to the private bucket
-scripts/    upload-flags.sh, deploy-origin.sh
+scripts/    upload-flags.sh, deploy-origin.sh, map/gen-world-map.mjs (Natural Earth → dotted SVG)
 ```
 
 ## How each requirement is met
 
 1. **Domain on Cloudflare** — `strikemap.space`, nameservers `monroe`/`remy.ns.cloudflare.com`.
-2. **Origin returning all request headers** — `origin/server.js`. `GET /headers` renders every header (Cloudflare-added ones highlighted); `/headers?format=json` returns JSON.
+2. **Origin returning all request headers** — `origin/server.js`. `GET /headers` renders every header with the hop that added it; `/headers?format=json` returns them as JSON.
 3. **Proxied through Cloudflare** — `app` A record → EC2 Elastic IP, orange-clouded.
 4. **Full (strict) with a non-Cloudflare certificate** — Let's Encrypt cert issued via the **DNS-01** challenge against Cloudflare DNS (no port 80 ever opened), terminated by Nginx.
 5. **Rate limiting** — rule on `app.strikemap.space/headers`: 5 requests / 10 s per IP → block for 60 s with a JSON 429.
