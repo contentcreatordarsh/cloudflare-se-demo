@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Push origin app, Nginx config and TLS cert to the EC2 host and (re)start services.
+# Deploy the SiamPay origin to EC2: React console (web/dist), Node API, Nginx config and TLS cert.
 # Usage: ORIGIN_IP=1.2.3.4 SSH_KEY=~/.ssh/cf-se-demo.pem ./scripts/deploy-origin.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -7,28 +7,41 @@ cd "$(dirname "$0")/.."
 CERT_DIR=".secrets/le/config/live/app.strikemap.space"
 SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=accept-new ubuntu@$ORIGIN_IP"
 
-scp -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new \
-  origin/server.js origin/ui.js origin/world-map.js origin/siampay.service origin/nginx-siampay.conf \
+echo "› building console"
+npm --prefix web run build --silent >/dev/null
+
+echo "› uploading"
+COPYFILE_DISABLE=1 tar --no-xattrs --no-mac-metadata -C web -czf - dist | $SSH 'rm -rf /tmp/siampay-dist && mkdir -p /tmp/siampay-dist && tar -C /tmp/siampay-dist -xzf -'
+scp -q -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new \
+  origin/server.js origin/siampay.service origin/nginx-siampay.conf \
   "$CERT_DIR/fullchain.pem" "$CERT_DIR/privkey.pem" "ubuntu@$ORIGIN_IP:/tmp/"
 
-# Country flags for the console header (same set as the private R2 bucket)
-COPYFILE_DISABLE=1 tar --no-xattrs --no-mac-metadata -C r2 -czf - flags | $SSH 'rm -rf /tmp/flags && tar -C /tmp -xzf -'
-
+echo "› installing"
 $SSH 'sudo bash -s' <<'REMOTE'
 set -euo pipefail
 test -f /var/lib/cloud/instance/siampay-bootstrap-done || { echo "bootstrap not finished yet"; exit 1; }
-for f in server.js ui.js world-map.js; do install -o siampay -g siampay -m 0644 "/tmp/$f" "/opt/siampay/$f"; done
-rm -rf /opt/siampay/flags && mv /tmp/flags /opt/siampay/flags && chown -R siampay:siampay /opt/siampay/flags
+# API
+install -o siampay -g siampay -m 0644 /tmp/server.js /opt/siampay/server.js
+rm -rf /opt/siampay/ui.js /opt/siampay/world-map.js /opt/siampay/flags
 install -m 0644 /tmp/siampay.service /etc/systemd/system/siampay.service
-install -d -m 0755 /etc/ssl/siampay   # fullchain is public; privkey stays 0600 root
+# Console (atomic swap)
+mkdir -p /var/www/siampay
+rm -rf /var/www/siampay/dist.new && mv /tmp/siampay-dist/dist /var/www/siampay/dist.new
+chown -R root:root /var/www/siampay/dist.new && chmod -R a+rX /var/www/siampay/dist.new
+rm -rf /var/www/siampay/dist.old && { [ -d /var/www/siampay/dist ] && mv /var/www/siampay/dist /var/www/siampay/dist.old || true; }
+mv /var/www/siampay/dist.new /var/www/siampay/dist
+# TLS (fullchain is public; the private key stays root-only)
+install -d -m 0755 /etc/ssl/siampay
 install -m 0644 /tmp/fullchain.pem /etc/ssl/siampay/fullchain.pem
 install -m 0600 /tmp/privkey.pem   /etc/ssl/siampay/privkey.pem
 install -m 0644 /tmp/nginx-siampay.conf /etc/nginx/sites-available/siampay
 ln -sf /etc/nginx/sites-available/siampay /etc/nginx/sites-enabled/siampay
-rm -f /tmp/server.js /tmp/ui.js /tmp/world-map.js /tmp/siampay.service /tmp/fullchain.pem /tmp/privkey.pem /tmp/nginx-siampay.conf
+rm -f /tmp/server.js /tmp/siampay.service /tmp/fullchain.pem /tmp/privkey.pem /tmp/nginx-siampay.conf
+rm -rf /tmp/siampay-dist
 systemctl daemon-reload
-systemctl enable --now siampay
+systemctl enable --now siampay >/dev/null 2>&1
 systemctl restart siampay
-nginx -t && systemctl reload nginx
-sleep 1; curl -fsS http://127.0.0.1:8080/healthz && echo " <- app healthy"
+nginx -t 2>&1 | tail -1 && systemctl reload nginx
+sleep 1; curl -fsS http://127.0.0.1:8080/healthz >/dev/null && echo "✓ API healthy"
+test -f /var/www/siampay/dist/index.html && echo "✓ console deployed"
 REMOTE

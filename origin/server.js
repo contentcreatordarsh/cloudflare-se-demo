@@ -1,52 +1,56 @@
-// SiamPay Edge Console — origin web server.
-// Zero dependencies. Listens on 127.0.0.1 only; Nginx (TLS, public 443) and cloudflared (Tunnel) sit in front.
+// SiamPay origin API (Node.js, zero dependencies).
+// Listens on 127.0.0.1 only. Nginx terminates TLS for app.strikemap.space and serves the React
+// console from /var/www/siampay/dist; cloudflared delivers tunnel.strikemap.space traffic here directly.
+//
+//   GET /headers       all request headers as JSON (assignment endpoint, rate-limit target)
+//   GET /api/trace     what the origin saw for this request (Ray ID, edge, TLS, timings, headers)
+//   GET /api/pay       demo payment API — same trace plus a mock authorisation
+//   GET /api/status    live health: cloudflared readiness, origin + edge certificates
+//   GET /api/logs      last 100 requests that actually reached the origin
 const http = require("http");
 const fs = require("fs");
-const path = require("path");
 const tls = require("tls");
-const { X509Certificate } = require("crypto");
-const ui = require("./ui");
+const crypto = require("crypto");
 
 const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || "127.0.0.1";
 const CERT_PATH = process.env.CERT_PATH || "/etc/ssl/siampay/fullchain.pem";
 const TUNNEL_READY_URL = process.env.TUNNEL_READY_URL || "http://127.0.0.1:20241/ready";
 const EDGE_HOST = process.env.EDGE_HOST || "app.strikemap.space";
-const FLAGS_DIR = process.env.FLAGS_DIR || path.join(__dirname, "flags");
+const ORIGIN_PUBLIC_IP = process.env.ORIGIN_PUBLIC_IP || "";
 const STARTED = Date.now();
 
-/* ---------- live state, refreshed in the background (requests never wait on it) ---------- */
+/* ---------- live state, refreshed in the background ---------- */
 const state = { originCert: null, edgeCert: null, tunnel: null };
 
 const dn = (s) => Object.fromEntries(String(s || "").split("\n").map((l) => l.split("=")).filter((p) => p.length >= 2).map(([k, ...v]) => [k, v.join("=")]));
 function describeCert(x) {
   const issuer = dn(x.issuer), subject = dn(x.subject);
   const from = new Date(x.validFrom), to = new Date(x.validTo);
-  const details = x.publicKey.asymmetricKeyDetails || {};
+  const d = x.publicKey.asymmetricKeyDetails || {};
+  const key = x.publicKey.asymmetricKeyType === "ec"
+    ? ({ prime256v1: "ECDSA P-256", secp384r1: "ECDSA P-384" }[d.namedCurve] || `ECDSA ${d.namedCurve}`)
+    : `RSA ${d.modulusLength || ""}`.trim();
   return {
-    subjectCN: subject.CN || x.subject,
-    san: (x.subjectAltName || "").replaceAll("DNS:", ""),
+    subject: subject.CN || x.subject,
+    san: (x.subjectAltName || "").replaceAll("DNS:", "").split(", ").filter(Boolean),
     issuerOrg: issuer.O || x.issuer,
     issuerCN: issuer.CN || "",
     validFrom: from.toISOString(),
     validTo: to.toISOString(),
     daysLeft: Math.floor((to - Date.now()) / 86400000),
     totalDays: Math.round((to - from) / 86400000),
-    keyType: x.publicKey.asymmetricKeyType,
-    curve: details.namedCurve,
-    bits: details.modulusLength,
+    key,
     serial: x.serialNumber,
     fingerprint: x.fingerprint256,
   };
 }
 
 function refreshOriginCert() {
-  try { state.originCert = describeCert(new X509Certificate(fs.readFileSync(CERT_PATH))); }
+  try { state.originCert = describeCert(new crypto.X509Certificate(fs.readFileSync(CERT_PATH))); }
   catch { state.originCert = null; }
 }
-
-// Connect to our own hostname through Cloudflare to read the edge (browser-facing) certificate.
-function refreshEdgeCert() {
+function refreshEdgeCert() { // the browser-facing certificate, read through Cloudflare like a visitor would
   const sock = tls.connect({ host: EDGE_HOST, port: 443, servername: EDGE_HOST, timeout: 5000 }, () => {
     try { state.edgeCert = { ...describeCert(sock.getPeerX509Certificate()), protocol: sock.getProtocol() }; } catch {}
     sock.end();
@@ -54,128 +58,120 @@ function refreshEdgeCert() {
   sock.on("error", () => {});
   sock.on("timeout", () => sock.destroy());
 }
-
-// cloudflared exposes readiness (active edge connections) on its local metrics port.
-async function refreshTunnel() {
+async function refreshTunnel() { // cloudflared readiness = active connections to the Cloudflare edge
   try {
-    const r = await fetch(TUNNEL_READY_URL, { signal: AbortSignal.timeout(1500) });
-    const j = await r.json();
+    const j = await (await fetch(TUNNEL_READY_URL, { signal: AbortSignal.timeout(1500) })).json();
     state.tunnel = { ready: Number(j.readyConnections) || 0, connector: j.connectorId || null };
   } catch { state.tunnel = null; }
 }
-
 refreshOriginCert(); refreshEdgeCert(); refreshTunnel();
 setInterval(refreshOriginCert, 10 * 60 * 1000).unref();
 setInterval(refreshEdgeCert, 60 * 60 * 1000).unref();
 setInterval(refreshTunnel, 15 * 1000).unref();
 
 function health() {
-  const up = Math.round((Date.now() - STARTED) / 1000);
-  const upText = up < 3600 ? `${Math.floor(up / 60)}m` : `${Math.floor(up / 3600)}h ${Math.floor((up % 3600) / 60)}m`;
   const c = state.originCert, t = state.tunnel;
   const checks = [
-    { name: "Origin app", ok: true, detail: `Node.js ${process.version} · up ${upText}` },
-    { name: "Cloudflare Tunnel", ok: !!t && t.ready > 0, detail: t ? `${t.ready} edge connections` : "cloudflared not reachable" },
-    { name: "Origin certificate", ok: !!c && c.daysLeft > 7, detail: c ? `${c.issuerOrg} · ${c.daysLeft} days left` : "not readable" },
+    { id: "origin", name: "AWS Origin", ok: true, detail: `Node.js ${process.version} · up ${Math.round((Date.now() - STARTED) / 60000)} min` },
+    { id: "tunnel", name: "Cloudflare Tunnel", ok: !!t && t.ready > 0, detail: t ? `${t.ready} edge connections` : "cloudflared not reachable" },
+    { id: "cert", name: "Origin certificate", ok: !!c && c.daysLeft > 7, detail: c ? `${c.issuerOrg} · ${c.daysLeft} days left` : "not readable" },
   ];
   return { healthy: checks.every((x) => x.ok), checks };
 }
 
-/* ---------- request log (what actually reached the origin) ---------- */
+/* ---------- request log: what actually reached the origin ---------- */
 const LOG = [];
-const LOG_MAX = 100;
-const QUIET = new Set(["/healthz", "/logs.json", "/status.json", "/favicon.svg", "/favicon.ico"]);
+const QUIET = new Set(["/healthz", "/api/logs", "/api/status"]);
 
-/* ---------- flags for the header country chip ---------- */
-let FLAGS = new Set();
-try { FLAGS = new Set(fs.readdirSync(FLAGS_DIR).filter((f) => /^[a-z]{2}\.svg$/.test(f)).map((f) => f.slice(0, 2))); } catch {}
+const mask = (ip) => {
+  if (!ip) return null;
+  if (ip.includes(".")) return ip.split(".").slice(0, 2).join(".") + ".xxx.xxx";
+  return ip.split(":").slice(0, 3).join(":") + ":xxxx::";
+};
+const coloOf = (ray) => (ray && ray.includes("-") ? ray.split("-").pop().toUpperCase() : null);
 
-function context(req, url) {
+function trace(req, url, startedNs) {
   const h = req.headers;
   const ray = h["cf-ray"] || null;
-  const colo = ray && ray.includes("-") ? ray.split("-").pop().toUpperCase() : null;
-  const country = /^[A-Za-z0-9]{2}$/.test(h["cf-ipcountry"] || "") ? h["cf-ipcountry"].toUpperCase() : null;
   const host = (h.host || "").toLowerCase();
   return {
-    ray, colo, country, host,
-    hasFlag: !!country && FLAGS.has(country.toLowerCase()),
-    ip: h["cf-connecting-ip"] || null,
+    message: "SiamPay request reached origin",
+    receivedAt: new Date().toISOString(),
+    ray,
+    colo: coloOf(ray),
+    country: h["cf-ipcountry"] || null,
+    method: req.method,
+    path: url.pathname + url.search,
+    host,
     via: !ray ? "direct" : host.startsWith("tunnel.") ? "tunnel" : "proxy",
-    tlsProto: h["x-origin-tls-protocol"] || null,
-    tlsCipher: h["x-origin-tls-cipher"] || null,
-    cert: state.originCert,
-    edgeCert: state.edgeCert,
-    tunnel: state.tunnel,
-    health: health(),
-    path: url.pathname,
+    clientIp: mask(h["cf-connecting-ip"]),
+    edgeIp: mask(h["x-edge-ip"]),
+    originIp: mask(ORIGIN_PUBLIC_IP),
+    originTls: { protocol: h["x-origin-tls-protocol"] || null, cipher: h["x-origin-tls-cipher"] || null },
+    originCert: state.originCert && { issuerOrg: state.originCert.issuerOrg, issuerCN: state.originCert.issuerCN, daysLeft: state.originCert.daysLeft, validTo: state.originCert.validTo },
+    appMs: Number(process.hrtime.bigint() - startedNs) / 1e6,
+    headers: h,
   };
 }
 
-const SECURITY_HEADERS = {
-  "x-content-type-options": "nosniff",
-  "referrer-policy": "strict-origin-when-cross-origin",
-  "content-security-policy":
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
-};
+const SECURITY_HEADERS = { "x-content-type-options": "nosniff", "referrer-policy": "strict-origin-when-cross-origin" };
 
 const server = http.createServer((req, res) => {
+  const startedNs = process.hrtime.bigint();
   const url = new URL(req.url, "http://origin");
-  const send = (status, type, body, extra = {}) => {
-    res.writeHead(status, { "content-type": type, "cache-control": "no-store", ...SECURITY_HEADERS, ...extra });
-    res.end(body);
+  const host = (req.headers.host || "").toLowerCase();
+  const send = (status, body, extra = {}) => {
+    const appMs = Number(process.hrtime.bigint() - startedNs) / 1e6;
+    res.writeHead(status, {
+      "content-type": "application/json",
+      "cache-control": "no-store",
+      "server-timing": `app;dur=${appMs.toFixed(2)}`,
+      ...SECURITY_HEADERS,
+      ...extra,
+    });
+    res.end(typeof body === "string" ? body : JSON.stringify(body, null, 2));
   };
-  const html = (status, body) => send(status, "text/html; charset=utf-8", body);
-  const json = (status, obj) => send(status, "application/json", JSON.stringify(obj, null, 2));
 
-  if (!QUIET.has(url.pathname) && !url.pathname.startsWith("/assets/")) {
+  if (!QUIET.has(url.pathname)) {
     res.on("finish", () => {
-      const ctx = { ray: req.headers["cf-ray"] || null };
+      const ray = req.headers["cf-ray"] || null;
       LOG.unshift({
-        t: new Date().toISOString(),
-        host: (req.headers.host || "").slice(0, 60),
-        method: req.method,
-        path: (url.pathname + url.search).slice(0, 80),
-        status: res.statusCode,
-        ray: ctx.ray,
-        colo: ctx.ray && ctx.ray.includes("-") ? ctx.ray.split("-").pop() : null,
-        country: req.headers["cf-ipcountry"] || null,
+        t: new Date().toISOString(), host: host.slice(0, 60), method: req.method,
+        path: (url.pathname + url.search).slice(0, 80), status: res.statusCode,
+        ray, colo: coloOf(ray), country: req.headers["cf-ipcountry"] || null,
+        ms: Number((Number(process.hrtime.bigint() - startedNs) / 1e6).toFixed(2)),
       });
-      if (LOG.length > LOG_MAX) LOG.length = LOG_MAX;
+      if (LOG.length > 100) LOG.length = 100;
     });
   }
 
-  if (url.pathname === "/healthz") return send(200, "text/plain; charset=utf-8", "OK");
-  if (url.pathname === "/favicon.svg") return send(200, "image/svg+xml", ui.FAVICON, { "cache-control": "public, max-age=86400" });
-
-  const flag = url.pathname.match(/^\/assets\/flags\/([a-z]{2})\.svg$/);
-  if (flag) {
-    if (!FLAGS.has(flag[1])) return send(404, "text/plain; charset=utf-8", "Not found");
-    return send(200, "image/svg+xml", fs.readFileSync(path.join(FLAGS_DIR, `${flag[1]}.svg`)), { "cache-control": "public, max-age=86400" });
+  // tunnel.strikemap.space is the internal staff host: its front door is the Access-protected portal.
+  if (host.startsWith("tunnel.") && url.pathname === "/") {
+    res.writeHead(302, { location: "/secure", "cache-control": "no-store" });
+    return res.end();
   }
 
-  const ctx = context(req, url);
-
   switch (url.pathname) {
-    case "/":
-      return html(200, ui.home(ctx));
-    case "/headers": {
-      const wantsJson = url.searchParams.get("format") === "json" || (req.headers.accept || "").startsWith("application/json");
-      return wantsJson ? json(200, req.headers) : html(200, ui.requests(ctx, req.headers));
+    case "/healthz":
+      return send(200, "OK", { "content-type": "text/plain; charset=utf-8" });
+    case "/headers":
+      return send(200, req.headers);
+    case "/api/trace":
+      return send(200, trace(req, url, startedNs));
+    case "/api/pay": {
+      const amount = Math.min(Math.max(Number(url.searchParams.get("amount")) || 1250, 1), 1e6);
+      return send(200, {
+        ...trace(req, url, startedNs),
+        payment: { id: `pay_${crypto.randomBytes(6).toString("hex")}`, amount, currency: "THB", status: "authorised (demo)" },
+      });
     }
-    case "/certificates":
-      return html(200, ui.certificates(ctx));
-    case "/logs":
-      return html(200, ui.logs(ctx, LOG));
-    case "/logs.json":
-      return json(200, LOG);
-    case "/status.json":
-      return json(200, { health: ctx.health, tunnel: state.tunnel, originCert: state.originCert, edgeCert: state.edgeCert });
-    case "/settings":
-      return html(200, ui.settings(ctx));
+    case "/api/status":
+      return send(200, { health: health(), tunnel: state.tunnel, originCert: state.originCert, edgeCert: state.edgeCert, serverTime: new Date().toISOString() });
+    case "/api/logs":
+      return send(200, LOG);
     default:
-      return html(404, ui.notFound(ctx));
+      return send(404, { error: "not_found" });
   }
 });
 
-server.listen(PORT, HOST, () => console.log(`origin listening on ${HOST}:${PORT}`));
+server.listen(PORT, HOST, () => console.log(`origin API listening on ${HOST}:${PORT}`));

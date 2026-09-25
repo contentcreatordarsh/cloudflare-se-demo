@@ -32,37 +32,47 @@ A fictional Thai fintech, **SiamPay**, runs a small origin on AWS and puts Cloud
 
 ## The Edge Console (app.strikemap.space)
 
-A server-rendered console (zero runtime dependencies) where **every value is live** — nothing is mocked:
+A React + Vite + TypeScript command center (Tailwind, Lucide, Recharts) served by Nginx from EC2, backed by a
+zero-dependency Node API. It tells one story — *why put Cloudflare between SiamPay's users and AWS?* — and
+everything the presenter clicks is **live**:
 
-| Page | What it shows | Live source |
-|---|---|---|
-| **Home** | Hero with this request's `cf-ray` + country, edge-network map, request path, four product cards | request headers, origin cert, cloudflared readiness |
-| **Requests** (`/headers`) | Every header the origin received, tagged by the hop that added it (Cloudflare / Nginx / Tunnel / browser) | the request itself — also the rate-limit target |
-| **Certificates** | Origin cert (Let's Encrypt, key, fingerprint, days left), edge cert, TLS on each hop | `X509Certificate` on disk, live TLS handshake to the edge, Nginx `$ssl_protocol` |
-| **Logs** | Requests that actually reached the origin (auto-refresh) | in-memory ring buffer on the origin |
-| **Settings** | Health checks + read-only Cloudflare/AWS configuration | cloudflared `/ready`, cert expiry |
+| Feature | Live source |
+|---|---|
+| **Request Journey** — Browser → Cloudflare edge → WAF → Rate limit → TLS → AWS → app, with per-hop timings | `/cdn-cgi/trace` (answered by the edge: colo, HTTP version, client TLS, post-quantum key exchange) + `/api/pay` on the origin (Ray ID, edge→origin TLS from Nginx, app time) + Resource Timing |
+| **Try an example** — *Blocked Request* / *Rate Limited* | real XSS probe answered **403** by a WAF custom rule; real burst to `/headers` answered **429** by the rate-limit rule — neither ever reaches AWS |
+| **Security (WAF)** | live probes (legit / XSS / SQLi / `/.env`) with Ray IDs |
+| **Rate Limiting** | "Verify against the production rule": 12 real requests → 5×200 then 429s |
+| **TLS & Certificates** | origin cert read on EC2 (`X509Certificate`), edge cert via a live TLS handshake, Nginx `$ssl_protocol` |
+| **Staff Portal (Access)** | real Access session: the Worker's `/secure/whoami` returns the identity from the verified JWT (same-site, CORS-restricted) |
+| **Logs & Analytics** | origin request log (what reached AWS) next to this browser's edge-blocked responses |
+| **Origin Health / System Healthy** | cloudflared `/ready` (tunnel connections), cert expiry, API liveness |
 
-**Demo moment:** press **Send 15 requests** on the rate-limiting card → 5 green bars (200) then 10 orange (429 from the edge) → open **Logs**: only the 5 allowed requests ever reached the origin.
+Clearly marked **Simulated**: the 24 h KPI tiles, the Live Traffic Map mix and the "Simulate Attack" / large-burst
+animations (illustrative numbers, per the brief). Each simulation links to its live proof.
+
+**Demo moment:** *Try an example → Rate Limited* (6th request gets 429 at the edge) → *Logs & Analytics*: the
+blocked requests appear only as **Edge** rows — they never reached the origin.
 
 ## Repository layout
 
 ```
-origin/     server.js (routes + live data), ui.js (console UI), world-map.js (generated),
-            nginx + systemd config, EC2 user-data
-worker/     Wrangler project for the /secure Worker (Access JWT verification + R2)
+web/        React console (Vite). scripts/gen-geo.mjs builds the globe + map dots from Natural Earth
+origin/     server.js (JSON API), nginx + systemd config, EC2 user-data
+worker/     Wrangler project for /secure* (Access JWT verification, R2 flags, /secure/whoami)
 r2/flags/   257 country flag SVGs (flag-icons, MIT) uploaded to the private bucket
-scripts/    upload-flags.sh, deploy-origin.sh, map/gen-world-map.mjs (Natural Earth → dotted SVG)
+scripts/    deploy-origin.sh (build + ship console, API, nginx, cert), upload-flags.sh
 ```
 
 ## How each requirement is met
 
 1. **Domain on Cloudflare** — `strikemap.space`, nameservers `monroe`/`remy.ns.cloudflare.com`.
-2. **Origin returning all request headers** — `origin/server.js`. `GET /headers` renders every header with the hop that added it; `/headers?format=json` returns them as JSON.
+2. **Origin returning all request headers** — `origin/server.js`: `GET /headers` returns every request header as JSON (the console's Request Inspector renders them with the hop that added each one).
 3. **Proxied through Cloudflare** — `app` A record → EC2 Elastic IP, orange-clouded.
 4. **Full (strict) with a non-Cloudflare certificate** — Let's Encrypt cert issued via the **DNS-01** challenge against Cloudflare DNS (no port 80 ever opened), terminated by Nginx.
 5. **Rate limiting** — rule on `app.strikemap.space/headers`: 5 requests / 10 s per IP → block for 60 s with a JSON 429.
+   Also deployed: a WAF custom rule (XSS / SQLi / `/.env` probes → JSON 403) and the Cloudflare Managed Ruleset.
 6. **Cloudflare Tunnel** — remotely-managed tunnel `siampay-origin`, `tunnel.strikemap.space` → `http://localhost:8080`.
-7. **SSO IdP** — Cloudflare Zero Trust with One-time PIN (+ Google).
+7. **SSO IdP** — Cloudflare Zero Trust with One-time PIN.
 8. **Lock down `/secure`** — Access self-hosted app on `tunnel.strikemap.space/secure`; allow policy = the owner's email **or** any `@cloudflare.com` email.
    **No bypass:** the EC2 security group only admits Cloudflare IP ranges on 443 (SSH from one admin IP), Node listens on loopback, Nginx rejects TLS handshakes for any other hostname (e.g. the raw IP), and the Worker has `workers_dev = false`.
 9. **Worker + private R2** — `worker/src/index.js`, deployed with `wrangler deploy`:
@@ -89,8 +99,8 @@ cd worker && npm install && npx wrangler deploy
 # Flags → private R2
 CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… ./scripts/upload-flags.sh
 
-# Origin (after launching EC2 with origin/bootstrap.sh as user-data)
-ORIGIN_IP=<elastic-ip> ./scripts/deploy-origin.sh
+# Console + origin (after launching EC2 with origin/bootstrap.sh as user-data)
+cd web && npm install && cd .. && ORIGIN_IP=<elastic-ip> ./scripts/deploy-origin.sh
 ```
 
 Secrets (API tokens, the tunnel token, the TLS private key, SSH keys) are never committed.

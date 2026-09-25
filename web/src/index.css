@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-ink-950: #03070e;
+  --color-ink-900: #050b14;
+  --color-ink-850: #071019;
+  --color-ink-800: #0a1421;
+  --color-ink-750: #0d192a;
+  --color-ink-700: #112035;
+  --color-line: #152236;
+  --color-line-strong: #1f3150;
+
+  --color-fg: #e6edf7;
+  --color-muted: #8a98ae;
+  --color-dim: #5a6780;
+
+  --color-accent: #2f7cf6;
+  --color-accent-soft: #5b9bff;
+  --color-cyan: #22d3ee;
+  --color-violet: #8b5cf6;
+  --color-edge: #f6821f;
+  --color-aws: #ff9900;
+  --color-ok: #22c55e;
+  --color-bad: #ef4444;
+  --color-warn: #f59e0b;
+
+  --animate-pulse-ring: pulse-ring 2.4s ease-out infinite;
+  --animate-fade-in: fade-in 0.35s ease-out both;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes dash-flow { to { stroke-dashoffset: -100; } }
+@keyframes trail {
+  from { stroke-dashoffset: 12; }
+  to { stroke-dashoffset: -100; }
+}
+@keyframes live-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(34 197 94 / 0.55); }
+  70% { box-shadow: 0 0 0 6px rgb(34 197 94 / 0); }
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes packet {
+  0% { left: 0; opacity: 0; }
+  15% { opacity: 1; }
+  100% { left: calc(100% - 6px); opacity: 0; }
+}
+@keyframes rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+html { color-scheme: dark; }
+body {
+  font-feature-settings: "cv11", "ss01";
+  background:
+    radial-gradient(1200px 600px at 60% -10%, rgb(47 124 246 / 0.10), transparent 60%),
+    radial-gradient(900px 500px at 100% 20%, rgb(139 92 246 / 0.06), transparent 60%),
+    var(--color-ink-950);
+  min-height: 100vh;
+}
+::selection { background: rgb(47 124 246 / 0.35); }
+:focus-visible { outline: 2px solid var(--color-accent-soft); outline-offset: 2px; border-radius: 6px; }
+
+* { scrollbar-width: thin; scrollbar-color: #1f3150 transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #1f3150; border-radius: 99px; }
+
+@layer components {
+  .panel {
+    @apply rounded-[10px] border border-line bg-ink-800/80;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.025);
+  }
+  .panel-hi {
+    @apply rounded-[10px] border border-line-strong bg-ink-750/90;
+  }
+  .label {
+    @apply text-[10.5px] font-semibold tracking-[0.12em] text-dim uppercase;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .live-dot {
+    @apply inline-block size-1.5 rounded-full bg-ok;
+    animation: live-dot 2.2s infinite;
+  }
+  .btn-primary {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-white
+      transition hover:bg-[#3d88ff] disabled:cursor-progress disabled:opacity-60;
+    box-shadow: 0 0 0 1px rgb(91 155 255 / 0.35), 0 8px 24px -10px rgb(47 124 246 / 0.9);
+  }
+  .btn-ghost {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-line-strong bg-ink-800/70 px-3.5
+      text-[13px] font-semibold text-fg transition hover:border-[#2c4468] hover:bg-ink-750 disabled:cursor-progress disabled:opacity-60;
+  }
+  .chip {
+    @apply inline-flex h-7 items-center gap-1.5 rounded-md border border-line-strong bg-ink-800 px-2.5 text-[12px]
+      font-medium text-fg transition hover:border-[#2c4468] hover:bg-ink-750;
+  }
+  .sim-tag {
+    @apply inline-flex items-center gap-1 rounded border border-line-strong px-1.5 py-px font-mono text-[9.5px]
+      font-medium tracking-wider text-dim uppercase;
+  }
+  .live-tag {
+    @apply inline-flex items-center gap-1.5 rounded border border-ok/30 bg-ok/10 px-1.5 py-px font-mono text-[9.5px]
+      font-medium tracking-wider text-[#86efac] uppercase;
+  }
+}
+
+.trail {
+  stroke-dasharray: 12 188;
+  animation: trail var(--dur, 3.4s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+.flow-dash {
+  stroke-dasharray: 4 6;
+  animation: dash-flow 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

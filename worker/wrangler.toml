@@ -15,6 +15,8 @@ routes = [
 TEAM_DOMAIN = "https://hegdedarsh.cloudflareaccess.com"
 # Application Audience (AUD) tag of the Access app protecting tunnel.strikemap.space/secure
 POLICY_AUD = "c9e6bb79ff4d5877fded44aa9415133178bbfac706d5f62a504406d1fb10e5a6"
+# Edge Console origin allowed to read /secure/whoami with credentials (same-site subdomain)
+CONSOLE_ORIGIN = "https://app.strikemap.space"
 
 [[r2_buckets]]
 binding = "FLAGS"

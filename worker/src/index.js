@@ -86,6 +86,30 @@ export default {
       return new Response(`Forbidden: ${err.message}`, { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } });
     }
 
+    // Identity for the Edge Console's Staff Portal tab (app.strikemap.space is same-site, so the
+    // Access cookie is sent with credentials: "include"). Unauthenticated calls never get here:
+    // Access answers them with a redirect to the login page.
+    if (path === "/secure/whoami") {
+      return new Response(
+        JSON.stringify({
+          email: claims.email,
+          authenticatedAt: new Date(claims.iat * 1000).toISOString(),
+          expiresAt: new Date(claims.exp * 1000).toISOString(),
+          country: request.cf?.country || null,
+          verifiedBy: "Cloudflare Access (JWT verified by Worker)",
+        }),
+        {
+          headers: {
+            "content-type": "application/json",
+            "cache-control": "private, no-store",
+            "access-control-allow-origin": env.CONSOLE_ORIGIN,
+            "access-control-allow-credentials": "true",
+            vary: "Origin",
+          },
+        }
+      );
+    }
+
     if (path === "/secure") {
       const country = request.cf?.country || "XX";
       const timestamp = new Date(claims.iat * 1000).toISOString();
