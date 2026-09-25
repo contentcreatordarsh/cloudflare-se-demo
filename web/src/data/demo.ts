@@ -28,19 +28,19 @@ export interface Kpi {
 }
 
 export const KPIS: Kpi[] = [
-  { id: "total", label: "Total Requests", value: 12842, delta: 12, good: "up", color: "#3b82f6", data: series(7, 24, 520, 90, 4) },
-  { id: "waf", label: "Blocked (WAF)", value: 1284, delta: 8, good: "down", color: "#ef4444", data: series(11, 24, 48, 22, 0.8, [17, 21]) },
-  { id: "rl", label: "Rate Limited", value: 92, delta: -24, good: "down", color: "#f59e0b", data: series(3, 24, 5, 4, -0.08, [9]) },
-  { id: "origin", label: "Origin Requests", value: 480, delta: -73, good: "down", color: "#22c55e", data: series(5, 24, 20, 8, -0.2) },
-  { id: "latency", label: "Avg. Latency (Edge)", value: 48, unit: "ms", delta: -36, good: "down", color: "#5b9bff", data: series(13, 24, 52, 10, -0.35) },
+  { id: "total", label: "Total Requests", value: 12842, delta: 12, good: "up", color: "#2f80ed", data: series(7, 24, 520, 90, 4) },
+  { id: "waf", label: "Blocked (WAF)", value: 1284, delta: 8, good: "down", color: "#ff4d5a", data: series(11, 24, 48, 22, 0.8, [17, 21]) },
+  { id: "rl", label: "Rate Limited", value: 92, delta: -24, good: "down", color: "#f6821f", data: series(3, 24, 5, 4, -0.08, [9]) },
+  { id: "origin", label: "Origin Requests", value: 480, delta: -73, good: "down", color: "#00d084", data: series(5, 24, 20, 8, -0.2) },
+  { id: "latency", label: "Avg. Latency (Edge)", value: 48, unit: "ms", delta: -36, good: "down", color: "#5aa0ff", data: series(13, 24, 52, 10, -0.35) },
 ];
 
 export const TRAFFIC_MIX = [
-  { key: "allowed", label: "Allowed", pct: 75, color: "#3b82f6" },
-  { key: "blocked", label: "Blocked", pct: 15, color: "#ef4444" },
-  { key: "ratelimited", label: "Rate Limited", pct: 5, color: "#f59e0b" },
+  { key: "allowed", label: "Allowed", pct: 75, color: "#2f80ed" },
+  { key: "blocked", label: "Blocked", pct: 15, color: "#ff4d5a" },
+  { key: "ratelimited", label: "Rate Limited", pct: 5, color: "#f6821f" },
   { key: "challenged", label: "Challenged", pct: 3, color: "#8b5cf6" },
-  { key: "origin", label: "Origin", pct: 2, color: "#22c55e" },
+  { key: "origin", label: "Origin", pct: 2, color: "#00d084" },
 ] as const;
 
 // Globe traffic sources -> Singapore. RTTs are typical public-internet round trips to Singapore.

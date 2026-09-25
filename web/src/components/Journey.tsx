@@ -1,9 +1,9 @@
-import { ArrowRight, Ban, CircleCheck, CircleX, Cloud, CreditCard, Gauge, Laptop, LockKeyhole, Search, Server, ShieldCheck, ShieldX } from "lucide-react";
+import { ArrowRight, Ban, ChartCandlestick, CircleCheck, CircleX, Cloud, Gauge, Laptop, LockKeyhole, Search, Server, ShieldCheck, ShieldX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent, type ReactNode } from "react";
-import { ago, coloCity, coloCountry, fmtMs, httpLabel, isPostQuantum, tlsLabel } from "../lib/format";
+import { ago, coloCity, fmtMs, httpLabel, tlsLabel } from "../lib/format";
 import { navigate } from "../lib/router";
 import { useStore, verdictOf, type Journey } from "../lib/store";
-import { Dot, Flag, LiveTag, SectionHead, StatusCode } from "./ui";
+import { Dot, Flag, SectionHead, StatusCode } from "./ui";
 
 const coloOf = (ray: string | null) => (ray && ray.includes("-") ? ray.split("-").pop()!.toUpperCase() : null);
 
@@ -23,16 +23,16 @@ export function journeyNodes(j: Journey | null): JNode[] {
     { key: "rl", name: "Rate Limit", icon: Gauge, tone: "ok", sub: blocked === "ratelimit" ? "Blocked" : blocked ? "Not reached" : "Passed", metric: blocked === "ratelimit" ? "429" : blocked ? "—" : "inline", state: st(blocked === "ratelimit" ? "block" : blocked ? "skip" : "pass") },
     { key: "tls", name: "TLS", icon: LockKeyhole, tone: "violet", sub: blocked ? "Not reached" : tlsLabel(o?.originTls.protocol) , metric: blocked ? "—" : "Full (strict)", state: st(blocked ? "skip" : "pass") },
     { key: "aws", name: "AWS Origin", icon: Server, tone: "aws", sub: "ap-southeast-1", metric: blocked ? "not reached" : fmtMs(j?.originMs), state: st(blocked ? "skip" : "pass") },
-    { key: "app", name: "SiamPay App", icon: CreditCard, tone: "accent", sub: blocked ? "Not reached" : j ? `${j.status} ${j.status < 400 ? "OK" : "Error"}` : "—", metric: blocked ? "—" : fmtMs(o?.appMs ?? (j?.source === "log" ? j.totalMs : null)), state: st(blocked ? "skip" : "pass") },
+    { key: "app", name: "NOVA App", icon: ChartCandlestick, tone: "accent", sub: blocked ? "Not reached" : j ? `${j.status} ${j.status < 400 ? "OK" : "Error"}` : "—", metric: blocked ? "—" : fmtMs(o?.appMs ?? (j?.source === "log" ? j.totalMs : null)), state: st(blocked ? "skip" : "pass") },
   ];
 }
 
 const TONES: Record<string, string> = {
-  accent: "border-accent/45 bg-accent/12 text-accent-soft shadow-[0_0_22px_-6px_rgb(47_124_246/0.8)]",
-  edge: "border-edge/50 bg-edge/12 text-edge shadow-[0_0_22px_-6px_rgb(246_130_31/0.8)]",
-  ok: "border-ok/45 bg-ok/10 text-[#4ade80] shadow-[0_0_22px_-6px_rgb(34_197_94/0.7)]",
-  violet: "border-violet/50 bg-violet/12 text-[#a78bfa] shadow-[0_0_22px_-6px_rgb(139_92_246/0.8)]",
-  aws: "border-aws/60 bg-aws/10 text-aws shadow-[0_0_22px_-6px_rgb(255_153_0/0.7)]",
+  accent: "border-accent/50 bg-accent/12 text-accent-soft shadow-[0_0_20px_-6px_rgb(47_128_237/0.85)]",
+  edge: "border-brand/60 bg-brand/15 text-brand shadow-[0_0_22px_-5px_rgb(246_130_31/0.9)]",
+  ok: "border-ok/50 bg-ok/10 text-ok shadow-[0_0_20px_-6px_rgb(0_208_132/0.7)]",
+  violet: "border-violet/55 bg-violet/12 text-[#a78bfa] shadow-[0_0_20px_-6px_rgb(139_92_246/0.85)]",
+  aws: "border-aws/60 bg-aws/10 text-aws shadow-[0_0_20px_-6px_rgb(255_153_0/0.75)]",
 };
 
 function JourneyRow({ j, running }: { j: Journey | null; running: boolean }) {
@@ -40,7 +40,7 @@ function JourneyRow({ j, running }: { j: Journey | null; running: boolean }) {
   return (
     <div className="grid grid-cols-7 items-start gap-0" key={j?.at ?? "idle"}>
       {nodes.map((n, i) => {
-        const cls = n.state === "block" ? "border-bad/60 bg-bad/12 text-[#f87171] shadow-[0_0_24px_-6px_rgb(239_68_68/0.8)]"
+        const cls = n.state === "block" ? "border-bad/60 bg-bad/12 text-bad shadow-[0_0_24px_-6px_rgb(255_77_90/0.8)]"
           : n.state === "skip" || n.state === "idle" ? "border-line-strong bg-ink-750 text-dim"
           : TONES[n.tone];
         const next = nodes[i + 1];
@@ -48,21 +48,21 @@ function JourneyRow({ j, running }: { j: Journey | null; running: boolean }) {
         return (
           <div key={n.key} className="relative flex flex-col items-center text-center">
             {i < nodes.length - 1 && (
-              <div className="absolute top-[21px] left-[calc(50%+26px)] h-px w-[calc(100%-52px)]" aria-hidden>
-                <div className={`h-px w-full ${flowing ? "bg-gradient-to-r from-accent/70 to-cyan/70" : n.state === "block" ? "bg-bad/40" : "bg-line-strong"}`} />
-                <ArrowRight className={`absolute -top-[5.5px] -right-1 size-3 ${flowing ? "text-cyan" : "text-line-strong"}`} />
+              <div className="absolute top-[18px] left-[calc(50%+22px)] h-px w-[calc(100%-44px)]" aria-hidden>
+                <div className={`h-px w-full ${flowing ? "bg-gradient-to-r from-brand/70 to-brand-soft/70" : n.state === "block" ? "bg-bad/40" : "bg-line-strong"}`} />
+                <ArrowRight className={`absolute -top-[5.5px] -right-1 size-3 ${flowing ? "text-brand-soft" : "text-line-strong"}`} />
                 {flowing && !running && (
-                  <span className="absolute -top-[2.5px] left-0 size-1.5 rounded-full bg-cyan shadow-[0_0_8px_2px_rgb(34_211_238/0.8)]"
+                  <span className="absolute -top-[2.5px] left-0 size-1.5 rounded-full bg-brand-soft shadow-[0_0_8px_2px_rgb(246_130_31/0.8)]"
                     style={{ animation: `packet 0.5s ease-in-out ${i * 0.32}s both` }} />
                 )}
               </div>
             )}
-            <span className={`relative z-10 grid size-[42px] place-items-center rounded-full border transition ${cls} ${running ? "animate-pulse" : ""}`}>
-              <n.icon className="size-[19px]" />
+            <span className={`relative z-10 grid size-[38px] place-items-center rounded-full border transition ${cls} ${running ? "animate-pulse" : ""}`}>
+              <n.icon className="size-[17px]" />
             </span>
-            <span className="mt-2 text-[12px] font-semibold leading-tight">{n.name}</span>
-            <span className={`mt-0.5 max-w-full truncate px-1 text-[11px] ${n.state === "block" ? "font-semibold text-[#f87171]" : n.state === "pass" && ["waf", "rl"].includes(n.key) ? "text-[#4ade80]" : "text-muted"}`}>{n.sub}</span>
-            <span className="text-[11px] text-dim num">{n.metric}</span>
+            <span className="mt-1.5 max-w-[78px] text-[11.5px] leading-tight font-semibold">{n.name}</span>
+            <span className={`mt-0.5 max-w-full truncate px-0.5 text-[10.5px] ${n.state === "block" ? "font-semibold text-bad" : n.state === "pass" && ["waf", "rl"].includes(n.key) ? "text-ok" : n.key === "edge" && n.state === "pass" ? "text-brand-soft" : "text-muted"}`}>{n.sub}</span>
+            <span className="text-[10.5px] text-dim num">{n.metric}</span>
           </div>
         );
       })}
@@ -72,18 +72,18 @@ function JourneyRow({ j, running }: { j: Journey | null; running: boolean }) {
 
 function Check({ ok, label, value, tone }: { ok: boolean | null; label: string; value: string; tone?: "bad" | "warn" }) {
   return (
-    <div className="flex items-center gap-2 py-[1.5px] text-[12px]">
+    <div className="flex items-center gap-1.5 py-px text-[11px] whitespace-nowrap">
       {ok === null ? <span className="size-3.5 rounded-full border border-line-strong" /> : ok ? <CircleCheck className="size-3.5 text-ok" /> : <CircleX className="size-3.5 text-bad" />}
-      <span className="flex-1 text-muted">{label}</span>
-      <span className={`font-medium ${tone === "bad" ? "text-[#f87171]" : tone === "warn" ? "text-[#fcd34d]" : ok ? "text-[#86efac]" : "text-muted"}`}>{value}</span>
+      <span className="min-w-0 flex-1 truncate text-muted">{label}</span>
+      <span className={`font-medium ${tone === "bad" ? "text-bad" : tone === "warn" ? "text-warn" : ok ? "text-[#5ff0b0]" : "text-muted"}`}>{value}</span>
     </div>
   );
 }
 
 function Line({ k, v, tone, mono = false }: { k: string; v: ReactNode; tone?: "ok" | "bad" | "warn" | "dim"; mono?: boolean }) {
-  const t = tone === "ok" ? "text-[#86efac]" : tone === "bad" ? "text-[#f87171]" : tone === "warn" ? "text-[#fcd34d]" : tone === "dim" ? "text-dim" : "text-fg";
+  const t = tone === "ok" ? "text-[#5ff0b0]" : tone === "bad" ? "text-bad" : tone === "warn" ? "text-warn" : tone === "dim" ? "text-dim" : "text-fg";
   return (
-    <div className="flex items-center justify-between gap-2 py-[2px] text-[11.5px] leading-tight">
+    <div className="flex items-center justify-between gap-2 py-px text-[11px] leading-tight whitespace-nowrap">
       <span className="shrink-0 text-muted">{k}</span>
       <span className={`min-w-0 truncate text-right font-medium ${mono ? "font-mono text-[11px]" : ""} ${t}`}>{v}</span>
     </div>
@@ -91,53 +91,44 @@ function Line({ k, v, tone, mono = false }: { k: string; v: ReactNode; tone?: "o
 }
 
 function Details({ j }: { j: Journey | null }) {
-  const { status } = useStore();
   const colo = j ? coloOf(j.ray) ?? j.edge?.colo ?? null : null;
   const o = j?.origin ?? null;
   const blocked = j?.blockedAt ?? null;
-  const cert = status?.originCert;
   const country = j?.edge?.loc || o?.country || null;
   const box = "panel min-w-0 px-3 py-2";
-  const head = "mb-1 flex items-center justify-between text-[12px] font-semibold";
+  const head = "mb-1 flex items-center justify-between gap-1 text-[11.5px] font-semibold whitespace-nowrap";
   const failed = !!j && !blocked && j.status >= 400;
   return (
-    <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       <div className={box}>
-        <div className={head}>Edge Location</div>
-        <div className="flex items-center gap-2 pb-0.5 text-[12.5px] font-semibold"><Flag cc={coloCountry(colo)} />{colo ? `${coloCity(colo)} (${colo})` : "—"}</div>
-        <Line k="Network" v="Cloudflare Edge" />
-        <Line k="Egress IP" v={o?.edgeIp ?? "—"} mono />
-        <button onClick={() => navigate("/inspector")} className="mt-0.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-accent-soft hover:underline">View Details <ArrowRight className="size-3" /></button>
+        <div className={head}>Request Details <button onClick={() => navigate("/inspector")} className="text-brand hover:text-brand-soft" aria-label="Open in Request Inspector" title="Open in Request Inspector"><ArrowRight className="size-3.5" /></button></div>
+        <Line k="Ray ID" v={j?.ray ?? "—"} mono />
+        <Line k="Country" v={country ? <span className="inline-flex items-center gap-1.5"><Flag cc={country} className="h-3 w-4" />{country}</span> : "—"} />
+        <Line k="Edge" v={colo ? `${coloCity(colo)} (${colo})` : "—"} />
+        <Line k="Method · Path" v={j ? `GET ${j.path.split("?")[0]}` : "—"} mono />
       </div>
       <div className={box}>
         <div className={head}>Security Checks</div>
         <Check ok={j ? blocked !== "waf" : null} label="WAF" value={!j ? "—" : blocked === "waf" ? "Blocked · 403" : "Passed"} tone={blocked === "waf" ? "bad" : undefined} />
-        <Check ok={j ? blocked !== "ratelimit" : null} label="Rate Limiting" value={!j ? "—" : blocked === "ratelimit" ? `Blocked · #${j.attempts?.length ?? "?"}` : blocked ? "Not reached" : "Passed"} tone={blocked === "ratelimit" ? "warn" : undefined} />
+        <Check ok={j ? blocked !== "ratelimit" : null} label="Rate Limiting" value={!j ? "—" : blocked === "ratelimit" ? `Blocked · #${j.attempts?.length ?? "?"}` : blocked ? "Skipped" : "Passed"} tone={blocked === "ratelimit" ? "warn" : undefined} />
         <Check ok={j ? true : null} label="Bot challenge" value={j ? "None" : "—"} />
         <Check ok={j ? true : null} label="Country" value={country ? `Allowed (${country})` : "—"} />
       </div>
       <div className={box}>
-        <div className={head}>TLS Information <LockKeyhole className="size-3.5 text-[#a78bfa]" /></div>
-        <Line k="Client → Edge" v={j?.edge ? `${tlsLabel(j.edge.tls)}${isPostQuantum(j.edge.kex) ? " · PQ" : ""}` : "—"} tone={j?.edge ? "ok" : undefined} />
-        <Line k="Edge → Origin" v={blocked ? "Not reached" : o ? `${tlsLabel(o.originTls.protocol)} · strict` : "—"} tone={blocked ? "dim" : o ? "ok" : undefined} />
-        <Line k="Certificate" v={cert ? `${cert.issuerOrg} ✓` : "—"} tone={cert && cert.daysLeft > 0 ? "ok" : undefined} />
-        <Line k="Encryption" v={blocked ? "Edge only" : o ? "End-to-end" : "—"} />
-      </div>
-      <div className={box}>
-        <div className={head}>Origin Response <span className="font-normal text-muted">AWS EC2</span></div>
+        <div className={head}>Origin Response <span className="font-normal text-dim">EC2</span></div>
         {blocked ? (
           <>
-            <div className="flex items-center gap-1.5 py-[2px] text-[11.5px] font-semibold text-[#86efac]"><Ban className="size-3.5" />Never reached AWS</div>
+            <div className="flex items-center gap-1.5 py-[2px] text-[11.5px] font-semibold text-ok"><Ban className="size-3.5" />Never reached AWS</div>
             <Line k="Answered by" v={`Cloudflare · ${j?.status}`} />
             <Line k="Origin" v="Protected" tone="ok" />
-            <Line k="Region" v="ap-southeast-1" />
+            <Line k="AWS Region" v="ap-southeast-1" />
           </>
         ) : (
           <>
-            <Line k="Status" v={j ? `${j.status}${j.status < 400 ? " OK" : ""}` : "—"} tone={failed ? "warn" : j ? "ok" : undefined} mono />
-            <Line k="Response time" v={fmtMs(j?.originMs != null && o ? j.originMs + o.appMs : j?.source === "log" ? j.totalMs : null)} mono />
+            <Line k="Status Code" v={j ? `${j.status}${j.status < 400 ? " OK" : ""}` : "—"} tone={failed ? "warn" : j ? "ok" : undefined} mono />
+            <Line k="Response Time" v={fmtMs(j?.originMs != null && o ? j.originMs + o.appMs : j?.source === "log" ? j.totalMs : null)} mono />
             <Line k="Origin IP" v={o?.originIp ?? "—"} mono />
-            <Line k="Region" v="ap-southeast-1" />
+            <Line k="AWS Region" v="ap-southeast-1" />
           </>
         )}
       </div>
@@ -155,12 +146,11 @@ export function JourneyPanel() {
     : { t: "Request Completed", tone: "ok" as const };
   return (
     <div className="panel flex min-w-0 flex-col gap-2.5 p-3">
-      <SectionHead n={2} title="Request Journey" sub="Live view of how your request travels through Cloudflare to AWS."
+      <SectionHead n={2} title="Request Journey" sub="Live view of your request through Cloudflare to AWS."
         right={
-          <div className="flex items-center gap-3 text-[11.5px]">
-            <span className={`inline-flex items-center gap-1.5 font-semibold ${pill.tone === "ok" ? "text-[#4ade80]" : pill.tone === "bad" ? "text-[#f87171]" : pill.tone === "warn" ? "text-[#fcd34d]" : "text-muted"}`}><Dot tone={pill.tone} pulse={pill.tone === "ok"} />{pill.t}</span>
-            <span className="text-muted">Total Time: <span className="font-mono text-fg num">{j ? fmtMs(j.totalMs) : "—"}</span></span>
-            {j?.source === "live" && <LiveTag />}
+          <div className="flex flex-col items-end gap-0.5 text-[11.5px]">
+            <span className={`inline-flex items-center gap-1.5 font-semibold ${pill.tone === "ok" ? "text-ok" : pill.tone === "bad" ? "text-bad" : pill.tone === "warn" ? "text-warn" : "text-muted"}`}><Dot tone={pill.tone} pulse={pill.tone === "ok"} />{pill.t}</span>
+            <span className="whitespace-nowrap text-muted">Total Time: <span className="font-mono text-fg num">{j ? fmtMs(j.totalMs) : "—"}</span></span>
           </div>
         } />
       <JourneyRow j={j} running={!!running} />
@@ -216,16 +206,16 @@ export function TracePanel() {
 
   return (
     <div className="panel flex min-w-0 flex-col gap-2 p-3">
-      <SectionHead n={1} title="Trace a Request" sub="Enter a Ray ID or send a test request to see the full journey." />
-      <form onSubmit={submit} className="flex gap-2">
-        <label className="relative min-w-0 flex-1">
+      <SectionHead n={1} title="Trace a Request" sub="Enter a Ray ID or send a test request." />
+      <form onSubmit={submit} className="flex flex-col gap-2">
+        <label className="relative min-w-0">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-dim" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="cf-ray a40a45cd1de54422-SIN" aria-label="Ray ID"
             className="h-9 w-full rounded-lg border border-line-strong bg-ink-850 pr-2 pl-8 font-mono text-[12px] text-fg placeholder:text-dim focus:border-accent/60 focus:outline-none" />
         </label>
-        <button className="btn-primary" disabled={!!running}>{running ? "Tracing…" : "Trace Request"}</button>
+        <button className="btn-primary h-8" disabled={!!running}>{running ? "Tracing…" : "Trace Request"}</button>
       </form>
-      {msg && <p className="text-[11.5px] text-[#fcd34d]">{msg}</p>}
+      {msg && <p className="text-[11.5px] text-warn">{msg}</p>}
       <div>
         <div className="mb-1 text-[12px] font-semibold">Recent Requests</div>
         <ul className="divide-y divide-line">
@@ -238,7 +228,7 @@ export function TracePanel() {
                   <span className="block truncate font-mono text-[11.5px] text-fg">{r.ray}</span>
                   <span className="block truncate text-[11px] text-dim">{ago(r.t)} · {r.src === "edge" ? "this browser" : "origin log"}</span>
                 </span>
-                <span className="hidden w-[92px] truncate font-mono text-[11px] text-muted sm:block" title={r.path}>{r.path.split("?")[0]}</span>
+                <span className="hidden w-[58px] truncate font-mono text-[10.5px] text-muted sm:block" title={r.path}>{r.path.split("?")[0]}</span>
                 <StatusCode code={r.status} />
               </button>
             </li>

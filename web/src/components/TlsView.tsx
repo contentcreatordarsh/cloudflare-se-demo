@@ -67,7 +67,7 @@ export function TlsView({ full = false }: { full?: boolean }) {
       <div className="panel flex flex-col justify-center p-3.5">
         <div className="label">SSL/TLS Mode</div>
         <div className="mt-1 text-[24px] font-bold tracking-tight">FULL (STRICT)</div>
-        <div className="mt-1 flex items-center gap-1.5 text-[12.5px] font-semibold text-[#4ade80]"><Dot pulse />Enabled</div>
+        <div className="mt-1 flex items-center gap-1.5 text-[12.5px] font-semibold text-ok"><Dot pulse />Enabled</div>
         <ul className="mt-3 space-y-1.5 text-[12px] text-muted">
           {["Trusted CA required", "Hostname must match", "Expired certs refused", "Minimum TLS 1.2 · Always Use HTTPS"].map((t) => (
             <li key={t} className="flex items-center gap-2"><CircleCheck className="size-3.5 text-ok" />{t}</li>

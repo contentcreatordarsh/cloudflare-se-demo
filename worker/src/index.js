@@ -63,7 +63,7 @@ const html = (body, status = 200) =>
   new Response(
     `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SiamPay Staff Portal</title>
+<title>NOVA Staff Portal</title>
 <style>
   body{margin:0;font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0f1115;color:#e8eaf0}
   main{max-width:720px;margin:0 auto;padding:56px 16px}
@@ -114,7 +114,7 @@ export default {
       const country = request.cf?.country || "XX";
       const timestamp = new Date(claims.iat * 1000).toISOString();
       return html(`
-        <h1>SiamPay Staff Portal</h1>
+        <h1>NOVA Staff Portal</h1>
         <div class="card">
           ${escapeHtml(claims.email)} authenticated at ${escapeHtml(timestamp)} from
           <a href="/secure/${encodeURIComponent(country)}">${escapeHtml(country)}</a>

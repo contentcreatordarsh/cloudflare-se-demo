@@ -10,6 +10,7 @@ const dots = DOTS as number[];
 interface Props {
   sgRtt: number | null; // measured browser <-> edge RTT when this browser is served by SIN
   originHealthy: boolean | null;
+  originMs: number | null; // Cloudflare -> AWS -> app time from the last live trace
 }
 
 function useSize(ref: React.RefObject<HTMLDivElement | null>) {
@@ -53,30 +54,30 @@ function drawGlobe(ctx: CanvasRenderingContext2D, proj: GeoProjection, layer: Do
 
   // atmosphere
   const atm = ctx.createRadialGradient(cx, cy, r * 0.92, cx, cy, r * 1.18);
-  atm.addColorStop(0, "rgba(47,124,246,0.28)");
-  atm.addColorStop(0.35, "rgba(47,124,246,0.10)");
-  atm.addColorStop(1, "rgba(47,124,246,0)");
+  atm.addColorStop(0, "rgba(246,130,31,0.16)");
+  atm.addColorStop(0.3, "rgba(246,130,31,0.05)");
+  atm.addColorStop(1, "rgba(246,130,31,0)");
   ctx.fillStyle = atm;
   ctx.beginPath(); ctx.arc(cx, cy, r * 1.18, 0, Math.PI * 2); ctx.fill();
 
   // sphere body
   const body = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.4, r * 0.1, cx, cy, r * 1.05);
-  body.addColorStop(0, "#0d1d3a");
-  body.addColorStop(0.55, "#07122a");
-  body.addColorStop(1, "#040a17");
+  body.addColorStop(0, "#1a1d22");
+  body.addColorStop(0.55, "#0f1114");
+  body.addColorStop(1, "#08090a");
   ctx.fillStyle = body;
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "rgba(91,155,255,0.28)"; ctx.lineWidth = 1; ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1; ctx.stroke();
 
   // graticule
   const path = geoPath(proj, ctx);
   ctx.beginPath(); path(geoGraticule10());
-  ctx.strokeStyle = "rgba(91,155,255,0.07)"; ctx.lineWidth = 0.6; ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 0.6; ctx.stroke();
 
   // land dots
   const { base, lit } = layer;
   for (let i = 0; i < base.length; i += 3) {
-    ctx.fillStyle = `rgba(104,146,228,${base[i + 2].toFixed(3)})`;
+    ctx.fillStyle = `rgba(170,178,190,${(base[i + 2] * 0.8).toFixed(3)})`;
     ctx.fillRect(base[i] - 0.8, base[i + 1] - 0.8, 1.6, 1.6);
   }
   // city lights, gently twinkling
@@ -94,8 +95,8 @@ function drawGlobe(ctx: CanvasRenderingContext2D, proj: GeoProjection, layer: Do
 
   // subtle sheen
   const sheen = ctx.createRadialGradient(cx - r * 0.45, cy - r * 0.55, 0, cx - r * 0.45, cy - r * 0.55, r * 0.9);
-  sheen.addColorStop(0, "rgba(120,170,255,0.07)");
-  sheen.addColorStop(1, "rgba(120,170,255,0)");
+  sheen.addColorStop(0, "rgba(255,255,255,0.05)");
+  sheen.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = sheen;
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
 }
@@ -125,7 +126,7 @@ function buildArcs(proj: GeoProjection): Arc[] {
   });
 }
 
-export function Globe({ sgRtt, originHealthy }: Props) {
+export function Globe({ sgRtt, originHealthy, originMs }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const { w, h } = useSize(wrap);
@@ -163,14 +164,13 @@ export function Globe({ sgRtt, originHealthy }: Props) {
         <svg className="absolute inset-0" width={w} height={h} role="img" aria-label="Traffic from Europe, India, Japan, Australia and the US converging on the Cloudflare edge in Singapore, next to the AWS origin in ap-southeast-1">
           <defs>
             <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-            <radialGradient id="sg-glow"><stop offset="0" stopColor="#f6821f" stopOpacity=".75" /><stop offset=".4" stopColor="#f6821f" stopOpacity=".22" /><stop offset="1" stopColor="#f6821f" stopOpacity="0" /></radialGradient>
-            <linearGradient id="arc-grad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#5b9bff" stopOpacity=".25" /><stop offset="1" stopColor="#22d3ee" stopOpacity=".6" /></linearGradient>
+            <radialGradient id="sg-glow"><stop offset="0" stopColor="#ff9d4d" stopOpacity=".95" /><stop offset=".35" stopColor="#f6821f" stopOpacity=".35" /><stop offset="1" stopColor="#f6821f" stopOpacity="0" /></radialGradient>
           </defs>
 
-          {arcs.map((a) => <path key={`b-${a.id}`} d={a.d} fill="none" stroke="rgba(91,155,255,0.38)" strokeWidth={1.1} />)}
+          {arcs.map((a) => <path key={`b-${a.id}`} d={a.d} fill="none" stroke="rgba(246,130,31,0.55)" strokeWidth={1.3} />)}
           <g filter="url(#glow)">
             {arcs.map((a, i) => (
-              <path key={`t-${a.id}`} d={a.d} pathLength={100} fill="none" stroke="#67e8f9" strokeWidth={2} strokeLinecap="round"
+              <path key={`t-${a.id}`} d={a.d} pathLength={100} fill="none" stroke="#ffc38a" strokeWidth={2.2} strokeLinecap="round"
                 className="trail" style={{ ["--dur" as string]: `${3 + (i % 3) * 0.6}s`, ["--delay" as string]: `${i * 0.7}s` }} />
             ))}
           </g>
@@ -182,37 +182,38 @@ export function Globe({ sgRtt, originHealthy }: Props) {
             const by = clampY(y - bh - 6, bh);
             return (
               <g key={`n-${a.id}`}>
-                <circle cx={x} cy={y} r={7} fill="rgba(91,155,255,0.18)" />
-                <circle cx={x} cy={y} r={3.2} fill="#8fb8ff" stroke="#fff" strokeWidth={0.8} />
+                <circle cx={x} cy={y} r={7} fill="rgba(246,130,31,0.2)" />
+                <circle cx={x} cy={y} r={3.2} fill="#ff9d4d" stroke="#fff" strokeWidth={0.8} />
                 <g transform={`translate(${bx} ${by})`}>
-                  <rect width={bw} height={bh} rx={7} fill="rgba(5,11,20,0.9)" stroke="rgba(91,155,255,0.35)" />
+                  <rect width={bw} height={bh} rx={6} fill="rgba(11,13,15,0.92)" stroke="rgba(255,255,255,0.14)" />
                   <text x={9} y={14} fontSize={11.5} fontWeight={700} fill="#e6edf7">{a.label}</text>
-                  <text x={9} y={27} fontSize={10.5} fill="#8a98ae" className="num">{a.rtt} ms</text>
+                  <text x={9} y={27} fontSize={10.5} fill="#9aa1a9" className="num">{a.rtt} ms</text>
                 </g>
               </g>
             );
           })}
 
-          {/* Singapore: Cloudflare edge (SIN) with the AWS origin in ap-southeast-1 right beside it */}
-          <circle cx={sg[0]} cy={sg[1]} r={34} fill="url(#sg-glow)" />
-          <circle cx={sg[0]} cy={sg[1]} r={9} fill="none" stroke="#34d399" strokeWidth={1.4} className="animate-pulse-ring" style={{ transformBox: "fill-box", transformOrigin: "center" }} />
-          <circle cx={sg[0]} cy={sg[1]} r={11} fill="none" stroke="rgba(52,211,153,0.55)" strokeWidth={1} />
-          <circle cx={sg[0]} cy={sg[1]} r={5.2} fill="#fff" stroke="#f6821f" strokeWidth={2.6} />
-          <g transform={`translate(${clampX(sg[0] + 16, 92)} ${clampY(sg[1] - 30, 38)})`}>
-            <rect width={92} height={38} rx={7} fill="rgba(5,11,20,0.92)" stroke="rgba(52,211,153,0.5)" />
-            <circle cx={11} cy={13} r={3} fill="#22c55e" />
-            <text x={19} y={17} fontSize={11.5} fontWeight={700} fill="#e6edf7">SG</text>
-            <text x={40} y={17} fontSize={10.5} fill="#86efac" className="num">{sgRtt != null ? `${Math.round(sgRtt)} ms` : "12 ms"}</text>
-            <text x={9} y={30} fontSize={9.5} fill="#8a98ae">Cloudflare · SIN</text>
+          {/* Singapore: the Cloudflare edge (SIN), brightest node — the AWS origin in ap-southeast-1 sits right beside it */}
+          <circle cx={sg[0]} cy={sg[1]} r={42} fill="url(#sg-glow)" />
+          <circle cx={sg[0]} cy={sg[1]} r={10} fill="none" stroke="#ff9d4d" strokeWidth={1.4} className="animate-pulse-ring" style={{ transformBox: "fill-box", transformOrigin: "center" }} />
+          <circle cx={sg[0]} cy={sg[1]} r={12} fill="none" stroke="rgba(0,208,132,0.6)" strokeWidth={1} />
+          <circle cx={sg[0]} cy={sg[1]} r={6} fill="#fff" stroke="#f6821f" strokeWidth={3} />
+          <g transform={`translate(${clampX(sg[0] + 18, 132)} ${clampY(sg[1] - 34, 44)})`}>
+            <rect width={132} height={44} rx={7} fill="rgba(11,13,15,0.94)" stroke="rgba(246,130,31,0.7)" />
+            <path d="M10 19.5c0-2 1.6-3.7 3.6-3.7a4.6 4.6 0 0 1 8.8 1.2 2.6 2.6 0 0 1-.3 5.2h-9.5A2.7 2.7 0 0 1 10 19.5Z" fill="#f6821f" transform="translate(-1 -6)" />
+            <text x={28} y={16} fontSize={11.5} fontWeight={700} fill="#eceef0">Singapore (SIN)</text>
+            <circle cx={12} cy={31} r={3} fill="#00d084" />
+            <text x={19} y={34.5} fontSize={10.5} fill="#7ff0c0" className="num">{sgRtt != null ? `${Math.round(sgRtt)} ms` : "9 ms"}</text>
+            <text x={54} y={34.5} fontSize={10} fill="#9aa1a9">Cloudflare · SIN</text>
           </g>
 
-          <path d={`M${sg[0]} ${sg[1] + 7}L${sg[0]} ${sg[1] + 40}`} stroke="#ff9900" strokeWidth={1.3} className="flow-dash" />
-          <g transform={`translate(${clampX(sg[0] - 72, 144)} ${clampY(sg[1] + 40, 44)})`}>
-            <rect width={144} height={44} rx={8} fill="rgba(5,11,20,0.94)" stroke="#ff9900" strokeOpacity={0.75} />
-            <text x={10} y={17} fontSize={11.5} fontWeight={700} fill="#ffb347">AWS EC2 <tspan fontWeight={400} fontSize={10} fill="#8a98ae">origin</tspan></text>
-            <text x={10} y={31} fontSize={10} fill="#8a98ae">ap-southeast-1</text>
-            <circle cx={98} cy={28} r={2.8} fill={originHealthy === false ? "#f59e0b" : "#22c55e"} />
-            <text x={104} y={31} fontSize={10} fill={originHealthy === false ? "#fcd34d" : "#86efac"}>{originHealthy === false ? "Check" : "Healthy"}</text>
+          <path d={`M${sg[0]} ${sg[1] + 8}L${sg[0]} ${sg[1] + 40}`} stroke="#ff9900" strokeWidth={1.3} className="flow-dash" />
+          <g transform={`translate(${clampX(sg[0] - 78, 156)} ${clampY(sg[1] + 40, 46)})`}>
+            <rect width={156} height={46} rx={7} fill="rgba(11,13,15,0.95)" stroke="#ff9900" strokeOpacity={0.7} />
+            <text x={10} y={17} fontSize={11.5} fontWeight={700} fill="#ffb347">AWS EC2 Origin</text>
+            <text x={10} y={33} fontSize={10} fill="#9aa1a9">ap-southeast-1</text>
+            <circle cx={88} cy={30} r={2.8} fill={originHealthy === false ? "#f5b83d" : "#00d084"} />
+            <text x={94} y={33} fontSize={10} fill={originHealthy === false ? "#f5b83d" : "#7ff0c0"}>{originHealthy === false ? "Check" : "Healthy"}{originMs != null ? ` · ${Math.round(originMs)} ms` : ""}</text>
           </g>
         </svg>
       )}

@@ -1,13 +1,13 @@
-# SiamPay Edge Console — Cloudflare SE technical assignment
+# NOVA Edge Console — Cloudflare SE technical assignment
 
-A fictional Thai fintech, **SiamPay**, runs a small origin on AWS and puts Cloudflare in front of it:
+**NOVA** — a fictional Singapore digital-asset platform (trading APIs, web platform, customer apps) — runs its origin on AWS EC2 in ap-southeast-1 and puts Cloudflare in front of it:
 
 | Surface | URL | Cloudflare products |
 |---|---|---|
 | Partner **Request Inspector** — shows partners exactly what reached our origin | https://app.strikemap.space | DNS + proxy, SSL/TLS Full (strict), rate limiting |
 | Staff **identity portal** — internal tool, no inbound ports | https://tunnel.strikemap.space/secure | Tunnel, Zero Trust Access, Workers, R2 |
 
-> SiamPay is a made-up company used to frame the demo.
+> NOVA is a made-up company used to frame the demo.
 
 ## Architecture
 
@@ -32,13 +32,13 @@ A fictional Thai fintech, **SiamPay**, runs a small origin on AWS and puts Cloud
 
 ## The Edge Console (app.strikemap.space)
 
-A React + Vite + TypeScript command center (Tailwind, Lucide, Recharts) served by Nginx from EC2, backed by a
-zero-dependency Node API. It tells one story — *why put Cloudflare between SiamPay's users and AWS?* — and
+A React + Vite + TypeScript command center (Tailwind, Lucide, Recharts) with a Cloudflare-inspired charcoal/orange design served by Nginx from EC2, backed by a
+zero-dependency Node API. It tells one story — *why put Cloudflare between NOVA's users and AWS?* — and
 everything the presenter clicks is **live**:
 
 | Feature | Live source |
 |---|---|
-| **Request Journey** — Browser → Cloudflare edge → WAF → Rate limit → TLS → AWS → app, with per-hop timings | `/cdn-cgi/trace` (answered by the edge: colo, HTTP version, client TLS, post-quantum key exchange) + `/api/pay` on the origin (Ray ID, edge→origin TLS from Nginx, app time) + Resource Timing |
+| **Request Journey** — Browser → Cloudflare edge → WAF → Rate limit → TLS → AWS → app, with per-hop timings | `/cdn-cgi/trace` (answered by the edge: colo, HTTP version, client TLS, post-quantum key exchange) + `/api/quote` on the origin (Ray ID, edge→origin TLS from Nginx, app time) + Resource Timing |
 | **Try an example** — *Blocked Request* / *Rate Limited* | real XSS probe answered **403** by a WAF custom rule; real burst to `/headers` answered **429** by the rate-limit rule — neither ever reaches AWS |
 | **Security (WAF)** | live probes (legit / XSS / SQLi / `/.env`) with Ray IDs |
 | **Rate Limiting** | "Verify against the production rule": 12 real requests → 5×200 then 429s |
@@ -46,8 +46,9 @@ everything the presenter clicks is **live**:
 | **Staff Portal (Access)** | real Access session: the Worker's `/secure/whoami` returns the identity from the verified JWT (same-site, CORS-restricted) |
 | **Logs & Analytics** | origin request log (what reached AWS) next to this browser's edge-blocked responses |
 | **Origin Health / System Healthy** | cloudflared `/ready` (tunnel connections), cert expiry, API liveness |
+| **Edge Economics** (NEW) | an *illustrative* traffic model: monthly TB × edge-handled % → TB that still reaches AWS (may incur AWS egress). Deliberately no pricing and no "Cloudflare is cheaper" claim; *Compare Architecture* shows AWS-native vs Cloudflare + AWS without a winner |
 
-Clearly marked **Simulated**: the 24 h KPI tiles, the Live Traffic Map mix and the "Simulate Attack" / large-burst
+Clearly marked **Simulated**: the 24 h KPI tiles, the Live Traffic mix and requests/sec chart, and the "Simulate Attack" / large-burst
 animations (illustrative numbers, per the brief). Each simulation links to its live proof.
 
 **Demo moment:** *Try an example → Rate Limited* (6th request gets 429 at the edge) → *Logs & Analytics*: the

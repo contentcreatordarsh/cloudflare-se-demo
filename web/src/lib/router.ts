@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
-export type Route = "/" | "/inspector" | "/security" | "/rate-limiting" | "/tls" | "/staff" | "/logs" | "/settings";
-export const ROUTES: Route[] = ["/", "/inspector", "/security", "/rate-limiting", "/tls", "/staff", "/logs", "/settings"];
+export type Route = "/" | "/inspector" | "/security" | "/rate-limiting" | "/tls" | "/staff" | "/logs" | "/economics" | "/settings";
+export const ROUTES: Route[] = ["/", "/inspector", "/security", "/rate-limiting", "/tls", "/staff", "/logs", "/economics", "/settings"];
 
 const listeners = new Set<() => void>();
 const subscribe = (fn: () => void) => {

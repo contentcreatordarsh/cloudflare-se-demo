@@ -8,6 +8,9 @@ export type ExampleKind = "normal" | "waf" | "ratelimit";
 export type Verdict = "allowed" | "blocked_waf" | "rate_limited" | "error";
 export type Tab = "journey" | "tls" | "ratelimit" | "logs" | "staff";
 
+/** Edge Economics inputs (illustrative model — never an AWS bill). */
+export interface Econ { tb: number; pct: number; period: "monthly" | "annual" }
+
 /** A request this browser made during the session — including ones the edge blocked. */
 export interface SessionEvent {
   id: string;
@@ -48,6 +51,10 @@ interface Store {
   identity: Identity | null | undefined; // undefined = not checked yet
   tab: Tab;
   attackOpen: boolean;
+  econ: Econ;
+  setEcon: (e: Partial<Econ>) => void;
+  compareOpen: boolean;
+  setCompareOpen: (open: boolean) => void;
   setTab: (t: Tab) => void;
   setAttackOpen: (open: boolean) => void;
   runExample: (kind: ExampleKind) => Promise<Journey | null>;
@@ -68,7 +75,7 @@ const coloOf = (ray: string | null) => (ray && ray.includes("-") ? ray.split("-"
 export const verdictOf = (status: number): Verdict =>
   status === 403 ? "blocked_waf" : status === 429 ? "rate_limited" : status >= 200 && status < 400 ? "allowed" : "error";
 
-export const XSS_PROBE = `/api/pay?q=${encodeURIComponent('<script>alert("pwned")</script>')}`;
+export const XSS_PROBE = `/api/quote?pair=${encodeURIComponent('<script>alert("pwned")</script>')}`;
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status | null>(null);
@@ -81,6 +88,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState<Identity | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>("journey");
   const [attackOpen, setAttackOpen] = useState(false);
+  const [econ, setEconState] = useState<Econ>({ tb: 10, pct: 35, period: "monthly" });
+  const setEcon = useCallback((e: Partial<Econ>) => setEconState((prev) => ({ ...prev, ...e })), []);
+  const [compareOpen, setCompareOpen] = useState(false);
   const seq = useRef(0);
 
   const record = useCallback((e: Omit<SessionEvent, "id">) => {
@@ -134,7 +144,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return j;
       }
 
-      const path = kind === "waf" ? XSS_PROBE : `/api/pay?amount=1250&currency=THB`;
+      const path = kind === "waf" ? XSS_PROBE : `/api/quote?pair=BTC-SGD`;
       const r = await timed<OriginTrace>(`${path}${path.includes("?") ? "&" : "?"}ts=${Date.now()}`);
       record({ t: new Date().toISOString(), method: "GET", path: decodeURIComponent(path), status: r.status, ray: r.ray, colo: coloOf(r.ray), country: e?.loc ?? null, ms: r.ms, verdict: verdictOf(r.status) });
       const app = r.data?.appMs ?? 0;
@@ -154,9 +164,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [record, refreshLogs]);
 
   const value = useMemo<Store>(() => ({
-    status, statusError, edge, logs, events, journey, running, identity, tab, attackOpen,
+    status, statusError, edge, logs, events, journey, running, identity, tab, attackOpen, econ, setEcon, compareOpen, setCompareOpen,
     setTab, setAttackOpen, runExample, showJourney: setJourney, record, refreshIdentity, refreshLogs,
-  }), [status, statusError, edge, logs, events, journey, running, identity, tab, attackOpen, runExample, record, refreshIdentity, refreshLogs]);
+  }), [status, statusError, edge, logs, events, journey, running, identity, tab, attackOpen, econ, setEcon, compareOpen, runExample, record, refreshIdentity, refreshLogs]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

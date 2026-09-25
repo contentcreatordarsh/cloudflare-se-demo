@@ -4,7 +4,6 @@ import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { KPIS, type Kpi } from "../data/demo";
 import { useStore } from "../lib/store";
 import { Dot, SimTag } from "./ui";
-import { TrafficMap } from "./TrafficMap";
 
 function useCountUp(target: number, ms = 900) {
   const [v, setV] = useState(0);
@@ -35,7 +34,7 @@ function KpiCard({ k }: { k: Kpi }) {
       <div className="mt-1 flex items-center gap-0.5 text-[11.5px] font-semibold num" style={{ color: k.color }}>
         {up ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}{Math.abs(k.delta)}%
       </div>
-      <div className="-mx-1 mt-auto h-[28px]">
+      <div className="-mx-1 mt-auto h-[24px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={k.data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
             <defs>
@@ -69,12 +68,12 @@ function OriginHealthCard() {
   const blocks = Array.from({ length: 12 }, (_, i) => history[history.length - 12 + i]);
   return (
     <div className="panel flex min-w-0 flex-col px-3 pt-2 pb-2" title={checks.map((c) => `${c.ok ? "✓" : "!"} ${c.name}: ${c.detail}`).join("\n")}>
-      <div className="flex items-center justify-between gap-1.5"><span className="truncate text-[11.5px] text-muted">Origin Health</span><span className="flex items-center gap-1 font-mono text-[9.5px] tracking-wider text-[#86efac] uppercase" title="Measured live from the origin"><Dot pulse />Live</span></div>
+      <div className="flex items-center justify-between gap-1.5"><span className="truncate text-[11.5px] text-muted">Origin Health</span><span className="flex items-center" title="Live — measured from the origin"><Dot pulse /></span></div>
       <div className="mt-1 text-[21px] leading-none font-semibold tracking-tight num">{pct == null ? "—" : `${pct}%`}</div>
-      <div className={`mt-1 text-[11.5px] font-semibold ${healthy ? "text-[#4ade80]" : status ? "text-warn" : "text-muted"}`}>{status ? (healthy ? "Healthy" : "Degraded") : "Checking…"}</div>
+      <div className={`mt-1 text-[11.5px] font-semibold ${healthy ? "text-ok" : status ? "text-warn" : "text-muted"}`}>{status ? (healthy ? "Healthy" : "Degraded") : "Checking…"}</div>
       <div className="mt-auto flex gap-[3px] pt-2" aria-label="Last 12 health checks, every 20 seconds">
         {blocks.map((b, i) => (
-          <span key={i} className={`h-3 flex-1 rounded-[2px] ${b === undefined ? "bg-line-strong/60" : b ? "bg-ok/85" : "bg-warn"}`} />
+          <span key={i} className={`h-3 flex-1 rounded-[2px] ${b === undefined ? "bg-line-strong/60" : b ? "bg-ok" : "bg-warn"}`} />
         ))}
       </div>
     </div>
@@ -83,15 +82,12 @@ function OriginHealthCard() {
 
 export function KpiRow() {
   return (
-    <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,2.6fr)_minmax(280px,0.85fr)]">
-      <div>
-        <div className="mb-1 flex items-center gap-2"><span className="label">Edge telemetry · last 24 h</span><SimTag /></div>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-6 xl:grid-cols-6">
-          {KPIS.map((k) => <KpiCard key={k.id} k={k} />)}
-          <OriginHealthCard />
-        </div>
+    <section>
+      <div className="mb-1 flex items-center gap-2"><span className="label">Edge telemetry · last 24 h</span><SimTag /></div>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+        {KPIS.map((k) => <KpiCard key={k.id} k={k} />)}
+        <OriginHealthCard />
       </div>
-      <TrafficMap />
     </section>
   );
 }

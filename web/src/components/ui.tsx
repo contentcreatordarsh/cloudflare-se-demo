@@ -3,21 +3,20 @@ import { Globe } from "lucide-react";
 import { flagUrl } from "../lib/format";
 
 export function Logo({ size = 34 }: { size?: number }) {
-  // Abstract mark: a cloud (edge network) carrying a payment line and an edge node.
+  // Original NOVA mark: a cloud (edge network) carrying a data line, with a bright node on the rim.
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
       <defs>
         <linearGradient id="lg-a" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#2f7cf6" />
-          <stop offset="1" stopColor="#8b5cf6" />
+          <stop offset="0" stopColor="#ffab5e" />
+          <stop offset="1" stopColor="#f26b0f" />
         </linearGradient>
       </defs>
-      <rect x="1" y="1" width="38" height="38" rx="11" fill="#0a1421" stroke="#1f3150" />
-      <path d="M9.5 25.5c0-3.6 2.8-6.5 6.4-6.6a7.6 7.6 0 0 1 14.6 2A4.7 4.7 0 0 1 29.7 30H13.9a4.4 4.4 0 0 1-4.4-4.5Z"
-        fill="none" stroke="url(#lg-a)" strokeWidth="2.6" strokeLinejoin="round" />
-      <path d="M16 26.2h8.5" stroke="#22d3ee" strokeWidth="2.6" strokeLinecap="round" />
-      <circle cx="29.5" cy="11" r="2.8" fill="#f6821f" />
-      <path d="M26.9 12.4 23 16.2" stroke="#f6821f" strokeWidth="1.4" strokeLinecap="round" opacity=".7" />
+      <path d="M6.5 27.5c0-4.1 3.2-7.4 7.2-7.5a9.2 9.2 0 0 1 17.6 2.4 5.3 5.3 0 0 1-.5 10.6H11.8a5.3 5.3 0 0 1-5.3-5.5Z" fill="url(#lg-a)" />
+      <path d="M14.5 28h10" stroke="#08090a" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M14.5 23.5h6" stroke="#08090a" strokeWidth="2.6" strokeLinecap="round" opacity=".55" />
+      <circle cx="31" cy="11" r="3" fill="#ff9d4d" />
+      <path d="M28.6 12.8 25 16.4" stroke="#ff9d4d" strokeWidth="1.5" strokeLinecap="round" opacity=".8" />
     </svg>
   );
 }
@@ -42,9 +41,9 @@ export const LiveTag = ({ children = "Live" }: { children?: ReactNode }) => (
 
 export function StatusCode({ code }: { code: number }) {
   const tone =
-    code >= 200 && code < 300 ? "border-ok/30 bg-ok/10 text-[#86efac]"
-    : code === 429 ? "border-warn/35 bg-warn/10 text-[#fcd34d]"
-    : code >= 400 ? "border-bad/35 bg-bad/10 text-[#fca5a5]"
+    code >= 200 && code < 300 ? "border-ok/30 bg-ok/10 text-[#5ff0b0]"
+    : code === 429 ? "border-warn/35 bg-warn/10 text-warn"
+    : code >= 400 ? "border-bad/35 bg-bad/10 text-[#ff8a93]"
     : "border-line-strong text-muted";
   return <span className={`inline-flex min-w-10 justify-center rounded-md border px-1.5 py-0.5 font-mono text-[11.5px] font-semibold num ${tone}`}>{code || "ERR"}</span>;
 }
@@ -54,7 +53,7 @@ export function SectionHead({ n, title, sub, right }: { n?: number; title: strin
     <div className="flex items-start justify-between gap-3">
       <div className="flex items-start gap-2.5">
         {n != null && (
-          <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md border border-line-strong bg-ink-750 font-mono text-[11px] text-accent-soft">{n}</span>
+          <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border border-brand/60 bg-brand/10 font-mono text-[11px] font-semibold text-brand-soft">{n}</span>
         )}
         <div>
           <h3 className="text-[14px] font-semibold tracking-tight text-fg">{title}</h3>
@@ -79,7 +78,7 @@ export function PageHeader({ title, sub, right }: { title: string; sub: string; 
 }
 
 export function Kv({ k, v, mono = false, tone }: { k: ReactNode; v: ReactNode; mono?: boolean; tone?: "ok" | "bad" | "warn" }) {
-  const t = tone === "ok" ? "text-[#86efac]" : tone === "bad" ? "text-[#fca5a5]" : tone === "warn" ? "text-[#fcd34d]" : "text-fg";
+  const t = tone === "ok" ? "text-[#5ff0b0]" : tone === "bad" ? "text-[#ff8a93]" : tone === "warn" ? "text-warn" : "text-fg";
   return (
     <div className="flex items-center justify-between gap-3 py-[5px] text-[12px]">
       <span className="shrink-0 text-muted">{k}</span>

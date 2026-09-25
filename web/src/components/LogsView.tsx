@@ -8,9 +8,9 @@ import { Flag, LiveTag, StatusCode } from "./ui";
 interface Row { key: string; t: string; source: "Edge" | "Origin"; country: string | null; method: string; path: string; status: number; verdict: Verdict; colo: string | null; ray: string | null; ms: number }
 
 const ACTION: Record<Verdict, { label: string; cls: string }> = {
-  allowed: { label: "Allowed", cls: "text-[#86efac]" },
-  blocked_waf: { label: "Blocked (WAF)", cls: "text-[#f87171]" },
-  rate_limited: { label: "Rate limited", cls: "text-[#fcd34d]" },
+  allowed: { label: "Allowed", cls: "text-[#5ff0b0]" },
+  blocked_waf: { label: "Blocked (WAF)", cls: "text-bad" },
+  rate_limited: { label: "Rate limited", cls: "text-warn" },
   error: { label: "Error", cls: "text-muted" },
 };
 
@@ -62,10 +62,10 @@ export function LogsView({ full = false }: { full?: boolean }) {
         <div className="grid gap-3 lg:grid-cols-[1fr_2fr]">
           <div className="panel grid grid-cols-2 gap-3 p-3">
             {[
-              ["Reached origin", rows.filter((r) => r.source === "Origin").length, "text-[#86efac]"],
-              ["Blocked at edge (this browser)", rows.filter((r) => r.source === "Edge").length, "text-[#f87171]"],
-              ["WAF blocks", rows.filter((r) => r.verdict === "blocked_waf").length, "text-[#f87171]"],
-              ["Rate limited", rows.filter((r) => r.verdict === "rate_limited").length, "text-[#fcd34d]"],
+              ["Reached origin", rows.filter((r) => r.source === "Origin").length, "text-[#5ff0b0]"],
+              ["Blocked at edge (this browser)", rows.filter((r) => r.source === "Edge").length, "text-bad"],
+              ["WAF blocks", rows.filter((r) => r.verdict === "blocked_waf").length, "text-bad"],
+              ["Rate limited", rows.filter((r) => r.verdict === "rate_limited").length, "text-warn"],
             ].map(([k, v, c]) => (
               <div key={k as string}><div className="text-[11.5px] text-muted">{k}</div><div className={`text-[22px] font-semibold num ${c}`}>{v}</div></div>
             ))}
@@ -75,12 +75,12 @@ export function LogsView({ full = false }: { full?: boolean }) {
             <div className="h-[92px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={perMinute} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
-                  <CartesianGrid stroke="#152236" vertical={false} />
-                  <XAxis dataKey="min" tick={{ fill: "#5a6780", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fill: "#5a6780", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: "#0a1421", border: "1px solid #1f3150", borderRadius: 8, fontSize: 12 }} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                  <Bar dataKey="allowed" name="Allowed" stackId="a" fill="#3b82f6" isAnimationActive={false} />
-                  <Bar dataKey="blocked" name="Blocked at edge" stackId="a" fill="#ef4444" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+                  <CartesianGrid stroke="#1c2025" vertical={false} />
+                  <XAxis dataKey="min" tick={{ fill: "#62686f", fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fill: "#62686f", fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: "#101214", border: "1px solid #2a2f36", borderRadius: 8, fontSize: 12 }} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                  <Bar dataKey="allowed" name="Allowed" stackId="a" fill="#2f80ed" isAnimationActive={false} />
+                  <Bar dataKey="blocked" name="Blocked at edge" stackId="a" fill="#ff4d5a" radius={[2, 2, 0, 0]} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

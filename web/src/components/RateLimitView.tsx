@@ -61,13 +61,13 @@ function Simulation() {
       <div className="h-[132px] min-w-0">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data.length ? data : [{ t: "0s", incoming: 0, allowed: 0, blocked: 0 }]} margin={{ top: 6, right: 4, bottom: 0, left: -18 }}>
-            <CartesianGrid stroke="#152236" vertical={false} />
-            <XAxis dataKey="t" tick={{ fill: "#5a6780", fontSize: 10 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#5a6780", fontSize: 10 }} axisLine={false} tickLine={false} width={44} />
-            <Tooltip contentStyle={{ background: "#0a1421", border: "1px solid #1f3150", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "#8a98ae" }} />
-            <Area type="monotone" dataKey="incoming" name="Incoming req/s" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.12} strokeWidth={1.6} isAnimationActive={false} />
-            <Area type="monotone" dataKey="blocked" name="Blocked at edge" stroke="#ef4444" fill="#ef4444" fillOpacity={0.18} strokeWidth={1.4} isAnimationActive={false} />
-            <Area type="monotone" dataKey="allowed" name="Reached origin" stroke="#22c55e" fill="#22c55e" fillOpacity={0.2} strokeWidth={1.6} isAnimationActive={false} />
+            <CartesianGrid stroke="#1c2025" vertical={false} />
+            <XAxis dataKey="t" tick={{ fill: "#62686f", fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "#62686f", fontSize: 10 }} axisLine={false} tickLine={false} width={44} />
+            <Tooltip contentStyle={{ background: "#101214", border: "1px solid #2a2f36", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "#9aa1a9" }} />
+            <Area type="monotone" dataKey="incoming" name="Incoming req/s" stroke="#f6821f" fill="#f6821f" fillOpacity={0.12} strokeWidth={1.6} isAnimationActive={false} />
+            <Area type="monotone" dataKey="blocked" name="Blocked at edge" stroke="#ff4d5a" fill="#ff4d5a" fillOpacity={0.18} strokeWidth={1.4} isAnimationActive={false} />
+            <Area type="monotone" dataKey="allowed" name="Reached origin" stroke="#00d084" fill="#00d084" fillOpacity={0.2} strokeWidth={1.6} isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -79,7 +79,7 @@ function Simulation() {
       </div>
       <div className="min-h-[38px] rounded-lg border border-line bg-ink-850 px-3 py-2 text-[12.5px]">
         {done && run ? (
-          <><span className="font-semibold text-[#f87171] num">{run.blocked.toLocaleString()} / {size.toLocaleString()}</span> requests blocked at edge · only <span className="font-semibold text-[#4ade80] num">{run.allowed.toLocaleString()}</span> reached origin
+          <><span className="font-semibold text-bad num">{run.blocked.toLocaleString()} / {size.toLocaleString()}</span> requests blocked at edge · only <span className="font-semibold text-ok num">{run.allowed.toLocaleString()}</span> reached origin
             <span className="block text-[11px] text-dim">Model: {run.ips} source IPs × 5 requests allowed per 10 s window (the real rule).</span></>
         ) : <span className="text-dim">Pick a burst size and send it — the chart shows what the edge absorbs.</span>}
       </div>
@@ -124,7 +124,7 @@ function LiveTest() {
         <div className="text-[13px] font-semibold">Verify against the production rule</div>
         <LiveTag />
       </div>
-      <div className="rounded-lg border border-edge/25 bg-edge/[0.06] px-3 py-2 font-mono text-[11.5px] text-[#fdba74]">
+      <div className="rounded-lg border border-edge/25 bg-edge/[0.06] px-3 py-2 font-mono text-[11.5px] text-brand-soft">
         app.strikemap.space/headers · 5 req / 10 s per IP → block 60 s (429)
       </div>
       <button className="btn-ghost self-start" onClick={go} disabled={busy}><Gauge className="size-4 text-edge" />{busy ? `Sending… ${results.length}/${N}` : `Send ${N} real requests`}</button>
@@ -139,9 +139,9 @@ function LiveTest() {
       <div className="flex flex-wrap gap-1">{results.map((s, i) => <StatusCode key={i} code={s} />)}</div>
       <div className="min-h-[38px] rounded-lg border border-line bg-ink-850 px-3 py-2 text-[12.5px]">
         {results.length === N ? (
-          <><span className="font-semibold text-[#4ade80]">{ok}</span> reached the origin · <span className="font-semibold text-[#f87171]">{limited}</span> blocked by Cloudflare (429)
+          <><span className="font-semibold text-ok">{ok}</span> reached the origin · <span className="font-semibold text-bad">{limited}</span> blocked by Cloudflare (429)
             {cool > 0 && <span className="text-dim"> · your IP is blocked on /headers for ~{cool}s</span>}
-            <button className="ml-2 font-semibold text-accent-soft hover:underline" onClick={() => navigate("/logs")}>Check origin log →</button></>
+            <button className="ml-2 font-semibold text-brand hover:underline" onClick={() => navigate("/logs")}>Check origin log →</button></>
         ) : <span className="text-dim">Real requests from this browser. Blocked ones never reach AWS — the origin log proves it.</span>}
       </div>
     </div>

@@ -1,10 +1,10 @@
-// SiamPay origin API (Node.js, zero dependencies).
+// NOVA origin API (Node.js, zero dependencies). NOVA is a fictional Singapore digital-asset platform.
 // Listens on 127.0.0.1 only. Nginx terminates TLS for app.strikemap.space and serves the React
 // console from /var/www/siampay/dist; cloudflared delivers tunnel.strikemap.space traffic here directly.
 //
 //   GET /headers       all request headers as JSON (assignment endpoint, rate-limit target)
 //   GET /api/trace     what the origin saw for this request (Ray ID, edge, TLS, timings, headers)
-//   GET /api/pay       demo payment API — same trace plus a mock authorisation
+//   GET /api/quote     demo trading API — same trace plus a mock quote (not market data)
 //   GET /api/status    live health: cloudflared readiness, origin + edge certificates
 //   GET /api/logs      last 100 requests that actually reached the origin
 const http = require("http");
@@ -95,7 +95,7 @@ function trace(req, url, startedNs) {
   const ray = h["cf-ray"] || null;
   const host = (h.host || "").toLowerCase();
   return {
-    message: "SiamPay request reached origin",
+    message: "NOVA request reached origin",
     receivedAt: new Date().toISOString(),
     ray,
     colo: coloOf(ray),
@@ -158,11 +158,11 @@ const server = http.createServer((req, res) => {
       return send(200, req.headers);
     case "/api/trace":
       return send(200, trace(req, url, startedNs));
-    case "/api/pay": {
-      const amount = Math.min(Math.max(Number(url.searchParams.get("amount")) || 1250, 1), 1e6);
+    case "/api/quote": {
+      const pair = /^[A-Z]{2,6}-[A-Z]{2,6}$/.test(url.searchParams.get("pair") || "") ? url.searchParams.get("pair") : "BTC-SGD";
       return send(200, {
         ...trace(req, url, startedNs),
-        payment: { id: `pay_${crypto.randomBytes(6).toString("hex")}`, amount, currency: "THB", status: "authorised (demo)" },
+        quote: { id: `q_${crypto.randomBytes(6).toString("hex")}`, pair, status: "demo quote — not market data" },
       });
     }
     case "/api/status":

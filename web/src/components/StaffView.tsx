@@ -29,7 +29,7 @@ export function StaffView() {
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <Logo size={30} />
-            <div><div className="text-[14px] font-semibold">SiamPay Staff Portal</div><div className="text-[12px] text-muted">Sign in with your company account</div></div>
+            <div><div className="text-[14px] font-semibold">NOVA Staff Portal</div><div className="text-[12px] text-muted">Sign in with your company account</div></div>
           </div>
           <LiveTag />
         </div>

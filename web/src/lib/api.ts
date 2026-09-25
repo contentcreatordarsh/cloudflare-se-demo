@@ -54,7 +54,7 @@ export interface OriginTrace {
   originCert: { issuerOrg: string; issuerCN: string; daysLeft: number; validTo: string } | null;
   appMs: number;
   headers: Record<string, string>;
-  payment?: { id: string; amount: number; currency: string; status: string };
+  quote?: { id: string; pair: string; status: string };
 }
 
 export interface LogEntry {

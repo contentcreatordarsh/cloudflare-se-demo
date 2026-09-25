@@ -1,8 +1,11 @@
-import { Bug, CircleCheck, CircleAlert, FileWarning, Gauge, Play, ShieldCheck, ShieldHalf, Syringe, Zap } from "lucide-react";
+import { Bug, CircleCheck, CircleAlert, CircleDollarSign, FileWarning, Gauge, Play, ShieldCheck, ShieldHalf, Syringe, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ArchitectureFlow } from "./components/ArchitectureFlow";
+import { EdgeEconomicsFull } from "./components/EdgeEconomics";
 import { Hero } from "./components/Hero";
 import { JourneyPanel, TracePanel } from "./components/Journey";
 import { KpiRow } from "./components/KpiRow";
+import { LiveTrafficPanel, RpsPanel } from "./components/LiveTraffic";
 import { LogsView } from "./components/LogsView";
 import { RateLimitView } from "./components/RateLimitView";
 import { StaffView } from "./components/StaffView";
@@ -18,12 +21,13 @@ function ValueStory() {
     { icon: Zap, t: "Performance", d: "Users connect through the global Cloudflare edge." },
     { icon: Gauge, t: "Reliability", d: "Traffic spikes are absorbed before overwhelming the origin." },
     { icon: ShieldHalf, t: "Zero Trust", d: "Internal apps need no publicly exposed inbound ports." },
+    { icon: CircleDollarSign, t: "Economics", d: "Evaluate edge architecture against the actual traffic profile." },
   ];
   return (
-    <section className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+    <section className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-5">
       {items.map(({ icon: Icon, t, d }) => (
         <div key={t} className="flex items-center gap-2.5 rounded-lg border border-line bg-ink-900/60 px-3 py-2">
-          <Icon className="size-4 shrink-0 text-accent-soft" />
+          <Icon className="size-4 shrink-0 text-brand" />
           <p className="text-[12px] text-muted"><span className="font-semibold text-fg">{t}.</span> {d}</p>
         </div>
       ))}
@@ -33,9 +37,13 @@ function ValueStory() {
 
 export function OverviewPage() {
   return (
-    <div className="flex flex-col gap-2.5">
-      <Hero />
-      <KpiRow />
+    <div className="flex flex-col gap-2">
+      <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_296px]">
+        <div className="xl:col-start-1 xl:row-start-1"><Hero /></div>
+        <div className="xl:col-start-2 xl:row-start-1"><LiveTrafficPanel /></div>
+        <div className="xl:col-start-1 xl:row-start-2"><KpiRow /></div>
+        <div className="xl:col-start-2 xl:row-start-2 xl:pt-[19px]"><RpsPanel /></div>
+      </div>
       <Workspace />
       <ValueStory />
     </div>
@@ -92,9 +100,9 @@ export function InspectorPage() {
 }
 
 const PROBES = [
-  { id: "legit", icon: CircleCheck, name: "Legitimate payment", path: "/api/pay?amount=1250&currency=THB", expect: 200 },
+  { id: "legit", icon: CircleCheck, name: "Legitimate quote request", path: "/api/quote?pair=BTC-SGD", expect: 200 },
   { id: "xss", icon: Bug, name: "XSS in query string", path: XSS_PROBE, expect: 403 },
-  { id: "sqli", icon: Syringe, name: "SQL injection", path: `/api/pay?id=${encodeURIComponent("1 UNION SELECT card_number FROM cards")}`, expect: 403 },
+  { id: "sqli", icon: Syringe, name: "SQL injection", path: `/api/quote?pair=${encodeURIComponent("BTC-SGD' UNION SELECT api_key FROM accounts--")}`, expect: 403 },
   { id: "env", icon: FileWarning, name: "Secrets scan", path: "/.env", expect: 403 },
 ];
 
@@ -167,10 +175,32 @@ export function LogsPage() {
   return (<><PageHeader title="Logs & Analytics" sub="What actually reached the origin, next to what the edge blocked for this browser. Search by Ray ID, endpoint, status or country." /><LogsView full /></>);
 }
 
+export function EconomicsPage() {
+  return (
+    <>
+      <PageHeader title="Edge Economics" sub="NOVA is committed to AWS. Before adding another edge platform, model how much traffic Cloudflare can answer at the edge — and how much still reaches AWS and may incur data transfer charges." />
+      <div className="grid gap-3 xl:grid-cols-[1.6fr_1fr]">
+        <EdgeEconomicsFull />
+        <div className="flex flex-col gap-3">
+          <ArchitectureFlow />
+          <div className="panel p-3.5">
+            <div className="label mb-2">How I'd position it</div>
+            <ul className="space-y-2 text-[12.5px] text-muted">
+              <li><span className="text-fg">“Edge-handled”, not “cached”:</span> blocked, challenged, cached and edge-computed responses never touch AWS.</li>
+              <li><span className="text-fg">Dynamic workloads:</span> if 95% still reaches AWS, model the AWS data transfer explicitly — don't promise savings.</li>
+              <li><span className="text-fg">Decide on the whole picture:</span> traffic profile, security, performance, operational complexity and total cost.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function SettingsPage() {
   const { status, edge } = useStore();
   const env = {
-    company: "SiamPay",
+    company: "NOVA (fictional digital-asset platform)",
     environment: "Production",
     origin: { provider: "AWS", service: "EC2", region: "ap-southeast-1", location: "Singapore", server: "Nginx + Node.js" },
     cloudflare: {
@@ -181,7 +211,8 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" sub="Read-only view of the environment. Configuration is managed through the Cloudflare API, Wrangler and the AWS CLI." />
-      <div className="grid gap-3 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-3">
+        <ArchitectureFlow />
         <div className="panel p-3.5">
           <div className="mb-2 flex items-center justify-between"><span className="text-[13px] font-semibold">Health checks</span><LiveTag /></div>
           <ul className="divide-y divide-line">

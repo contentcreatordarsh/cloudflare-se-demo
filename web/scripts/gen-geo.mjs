@@ -1,10 +1,9 @@
 // Build-time geodata for the Edge Console (Natural Earth 110m land via world-atlas, public domain).
 //   src/data/globe-dots.json  -> [lon*10, lat*10, glow(0-9), ...] land points on a Fibonacci sphere
-//   src/data/flat-map.json    -> dotted equirectangular mini map + projected city positions
 // Run: npm run gen:geo
 import { readFileSync, writeFileSync } from "node:fs";
 import { feature } from "topojson-client";
-import { geoContains, geoDistance, geoEquirectangular } from "d3-geo";
+import { geoContains, geoDistance } from "d3-geo";
 
 const topo = JSON.parse(readFileSync("node_modules/world-atlas/land-110m.json", "utf8"));
 const land = feature(topo, topo.objects.land);
@@ -53,26 +52,3 @@ for (let i = 0; i < N; i++) {
 }
 writeFileSync("src/data/globe-dots.json", JSON.stringify(globe));
 console.log(`globe: ${globe.length / 3} land dots (${lit} lit)`);
-
-// ---- flat mini map (equirectangular, 60N..-55S) ----
-const W = 360, H = 118, STEP = 4;
-const proj = geoEquirectangular().scale(W / (2 * Math.PI)).translate([W / 2, 0]).center([10, 62]);
-const dots = [];
-for (let y = STEP / 2; y < H; y += STEP) {
-  for (let x = STEP / 2; x < W; x += STEP) {
-    const ll = proj.invert([x, y]);
-    if (ll && ll[1] > -56 && geoContains(land, ll)) dots.push(`M${x} ${y}h0`);
-  }
-}
-const CITIES = {
-  SIN: [103.82, 1.35], BKK: [100.5, 13.76], HKG: [114.17, 22.32], NRT: [139.69, 35.69], ICN: [126.98, 37.57],
-  SYD: [151.21, -33.87], MEL: [144.96, -37.81], BOM: [72.88, 19.08], DEL: [77.21, 28.61], CGK: [106.85, -6.21],
-  MNL: [120.98, 14.6], KUL: [101.69, 3.14], DXB: [55.27, 25.2], FRA: [8.68, 50.11], LHR: [-0.45, 51.47],
-  CDG: [2.35, 48.86], AMS: [4.9, 52.37], JNB: [28.05, -26.2], LOS: [3.38, 6.52], CAI: [31.24, 30.04],
-  IAD: [-77.49, 39.04], ORD: [-87.63, 41.88], DFW: [-96.8, 32.78], LAX: [-118.24, 34.05], SJC: [-121.89, 37.34],
-  SEA: [-122.33, 47.61], MIA: [-80.19, 25.76], GRU: [-46.63, -23.55], EZE: [-58.38, -34.6], BOG: [-74.07, 4.71],
-  MEX: [-99.13, 19.43], YYZ: [-79.38, 43.65],
-};
-const cities = Object.fromEntries(Object.entries(CITIES).map(([k, ll]) => [k, proj(ll).map((v) => Math.round(v * 10) / 10)]));
-writeFileSync("src/data/flat-map.json", JSON.stringify({ width: W, height: H, path: dots.join(""), cities }));
-console.log(`flat map: ${W}x${H}, ${dots.length} dots`);
