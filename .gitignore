@@ -1,0 +1,6 @@
+.secrets/
+node_modules/
+.wrangler/
+*.pem
+.DS_Store
+CLAUDE.md
