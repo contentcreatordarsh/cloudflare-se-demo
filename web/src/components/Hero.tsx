@@ -51,12 +51,16 @@ export function Hero() {
     runExample("normal");
   };
   return (
-    <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(300px,0.9fr)_minmax(380px,1.35fr)_minmax(250px,0.72fr)]">
+    <section className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(300px,1fr)_minmax(340px,1.15fr)] xl:grid-cols-[minmax(300px,0.9fr)_minmax(380px,1.35fr)_minmax(250px,0.72fr)]">
       <div className="flex flex-col justify-center">
         <p className="text-[11px] font-semibold tracking-[0.2em] text-[#a78bfa] uppercase">Thai Fintech · Global Payments</p>
-        <h1 className="mt-2 text-[clamp(36px,3.45vw,50px)] leading-[0.98] font-bold tracking-[-0.035em]">
-          SiamPay
-          <span className="block bg-gradient-to-r from-[#3b8bff] via-[#6d7dff] to-[#a78bfa] bg-clip-text text-transparent">Edge Console</span>
+        <h1 className="mt-2 text-[clamp(36px,3.45vw,50px)] leading-[1.02] font-bold tracking-[-0.035em]">
+          <span className="block">SiamPay</span>
+          {/* w-fit: the gradient spans the words, not the column. pb/-mb: the clipped background reaches below the
+              baseline so descenders (the "g") stay visible without changing the line spacing. */}
+          <span className="block w-fit bg-[linear-gradient(95deg,#4f8fff_0%,#6d7eff_40%,#9a86ff_72%,#c0a4ff_100%)] bg-clip-text pr-[0.04em] pb-[0.16em] -mb-[0.16em] text-transparent [filter:drop-shadow(0_0_22px_rgb(99_120_255/0.28))]">
+            Edge Console
+          </span>
         </h1>
         <p className="mt-2.5 text-[16px] font-semibold tracking-tight">Secure. Fast. Global.</p>
         <p className="mt-1 max-w-[400px] text-[13px] leading-relaxed text-muted">
