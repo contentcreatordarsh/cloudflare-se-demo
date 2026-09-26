@@ -3,7 +3,7 @@ main = "src/index.js"
 compatibility_date = "2026-09-01"
 account_id = "0fa4850c978886b80a15821863df3855"
 
-# Only reachable through the zone route (behind Cloudflare Access) — no *.workers.dev bypass.
+# NOVA Staff Portal. Only reachable through the zone route (behind Cloudflare Access) — no *.workers.dev bypass.
 workers_dev = false
 preview_urls = false
 
@@ -17,7 +17,8 @@ TEAM_DOMAIN = "https://hegdedarsh.cloudflareaccess.com"
 POLICY_AUD = "c9e6bb79ff4d5877fded44aa9415133178bbfac706d5f62a504406d1fb10e5a6"
 # Edge Console origin allowed to read /secure/whoami with credentials (same-site subdomain)
 CONSOLE_ORIGIN = "https://app.strikemap.space"
+FLAGS_BUCKET_NAME = "nova-country-flags"
 
 [[r2_buckets]]
 binding = "FLAGS"
-bucket_name = "cf-se-demo-flags"
+bucket_name = "nova-country-flags"

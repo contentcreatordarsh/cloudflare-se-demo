@@ -6,6 +6,7 @@ import { Hero } from "./components/Hero";
 import { JourneyPanel, TracePanel } from "./components/Journey";
 import { KpiRow } from "./components/KpiRow";
 import { LiveTrafficPanel, RpsPanel } from "./components/LiveTraffic";
+import { LiveEndpointsPanel, PostureRow, ResiliencyPanel } from "./components/Posture";
 import { LogsView } from "./components/LogsView";
 import { RateLimitView } from "./components/RateLimitView";
 import { StaffView } from "./components/StaffView";
@@ -45,6 +46,7 @@ export function OverviewPage() {
         <div className="xl:col-start-2 xl:row-start-2 xl:pt-[19px]"><RpsPanel /></div>
       </div>
       <Workspace />
+      <PostureRow />
       <ValueStory />
     </div>
   );
@@ -93,7 +95,7 @@ export function InspectorPage() {
       <PageHeader title="Request Inspector" sub="Follow a real request through Cloudflare to AWS, and see every header the origin received — and which hop added it." />
       <div className="flex flex-col gap-3">
         <div className="grid gap-3 xl:grid-cols-[minmax(300px,0.85fr)_minmax(0,2.15fr)]"><TracePanel /><JourneyPanel /></div>
-        <HeadersTable />
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(300px,0.8fr)]"><HeadersTable /><LiveEndpointsPanel /></div>
       </div>
     </>
   );
@@ -117,7 +119,7 @@ export function SecurityPage() {
   const RULES = [
     ["Custom rule", "Block common attack probes — XSS, SQL injection, /.env, /.git, wp-login", "Block · JSON 403"],
     ["Cloudflare Managed Ruleset", "Cloudflare-maintained signatures for known vulnerabilities", "Execute"],
-    ["Rate limiting", "/headers · 5 requests / 10 s per IP and data center", "Block 60 s · 429"],
+    ["Rate limiting", "nova /api/orders and app /headers · 5 requests / 10 s per IP and data center", "Block 60 s · 429"],
     ["DDoS L7 protection", "Automatic, always-on HTTP DDoS mitigation", "Managed"],
   ];
   return (
@@ -178,7 +180,7 @@ export function LogsPage() {
 export function EconomicsPage() {
   return (
     <>
-      <PageHeader title="Edge Economics" sub="NOVA is committed to AWS. Before adding another edge platform, model how much traffic Cloudflare can answer at the edge — and how much still reaches AWS and may incur data transfer charges." />
+      <PageHeader title="Edge Economics" sub="NOVA is committed to AWS. Before adding another edge platform, model how much traffic is edge-handled and how much is origin-bound — and therefore still subject to AWS data transfer economics." />
       <div className="grid gap-3 xl:grid-cols-[1.6fr_1fr]">
         <EdgeEconomicsFull />
         <div className="flex flex-col gap-3">
@@ -187,10 +189,32 @@ export function EconomicsPage() {
             <div className="label mb-2">How I'd position it</div>
             <ul className="space-y-2 text-[12.5px] text-muted">
               <li><span className="text-fg">“Edge-handled”, not “cached”:</span> blocked, challenged, cached and edge-computed responses never touch AWS.</li>
-              <li><span className="text-fg">Dynamic workloads:</span> if 95% still reaches AWS, model the AWS data transfer explicitly — don't promise savings.</li>
-              <li><span className="text-fg">Decide on the whole picture:</span> traffic profile, security, performance, operational complexity and total cost.</li>
+              <li><span className="text-fg">Dynamic workloads:</span> if most traffic is origin-bound, model the AWS data transfer explicitly — don't promise savings.</li>
+              <li><span className="text-fg">“We're all-in on AWS”:</span> CloudFront + WAF + Shield is a valid baseline. Compare on security depth, API and bot protection, edge compute, Zero Trust, operating model, multi-cloud and total cost.</li>
             </ul>
           </div>
+        </div>
+      </div>
+      <div className="mt-3 grid gap-3 xl:grid-cols-2">
+        <div className="panel p-3.5">
+          <div className="mb-2 flex items-center justify-between"><span className="label">Enterprise commercial structure</span><span className="sim-tag">Illustrative</span></div>
+          <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+            {["Enterprise platform", "Application security", "Advanced Rate Limiting", "Bot Management", "Logging / Logpush", "Data Localization", "Workers / R2"].map((x, i, a) => (
+              <span key={x} className="flex items-center gap-1.5"><span className="rounded border border-line-strong bg-ink-850 px-2 py-1">{x}</span>{i < a.length - 1 && <span className="text-dim">+</span>}</span>
+            ))}
+            <span className="text-dim">=</span><span className="rounded border border-brand/50 bg-brand/10 px-2 py-1 font-semibold text-brand-soft">Annual enterprise commitment</span>
+          </div>
+          <p className="mt-3 text-[12.5px] text-muted">“I'd build the proposal around NOVA's traffic volume, number of applications, security products, Workers usage, log volume and data-localization requirements. Enterprise pricing is contract-based, so this demo is not a quote.”</p>
+        </div>
+        <div className="panel p-3.5">
+          <div className="label mb-2">“Why put Cloudflare in our critical path?”</div>
+          <p className="text-[12.5px] text-muted">Don't minimise past incidents — point to the public post-mortems and what changed after them, then design NOVA so any dependency has a controlled blast radius:</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {["Progressive config rollout", "Health monitoring & automated rollback", "Failure isolation", "Redundant Tunnel connectors", "Break-glass procedures", "Origin-side resilience", "DNS resilience options"].map((x) => (
+              <span key={x} className="rounded border border-line-strong px-2 py-0.5 text-[11.5px] text-muted">{x}</span>
+            ))}
+          </div>
+          <p className="mt-2.5 text-[12.5px] text-fg">“I don't want you to trust Cloudflare because it never fails — I want the architecture to make any failure controlled and recoverable.”</p>
         </div>
       </div>
     </>
@@ -204,7 +228,7 @@ export function SettingsPage() {
     environment: "Production",
     origin: { provider: "AWS", service: "EC2", region: "ap-southeast-1", location: "Singapore", server: "Nginx + Node.js" },
     cloudflare: {
-      zone: "strikemap.space", edge: edge?.colo ?? "—", tls: edge ? edge.tls : "—", sslMode: "Full (strict)",
+      zone: "strikemap.space", hosts: { console: "app.strikemap.space", publicApp: "nova.strikemap.space", staff: "tunnel.strikemap.space" }, edge: edge?.colo ?? "—", tls: edge ? edge.tls : "—", sslMode: "Full (strict)",
       waf: true, rateLimiting: true, access: true, tunnel: status?.tunnel ? `${status.tunnel.ready} connections` : "—",
     },
   };
@@ -213,6 +237,7 @@ export function SettingsPage() {
       <PageHeader title="Settings" sub="Read-only view of the environment. Configuration is managed through the Cloudflare API, Wrangler and the AWS CLI." />
       <div className="grid gap-3 xl:grid-cols-3">
         <ArchitectureFlow />
+        <ResiliencyPanel />
         <div className="panel p-3.5">
           <div className="mb-2 flex items-center justify-between"><span className="text-[13px] font-semibold">Health checks</span><LiveTag /></div>
           <ul className="divide-y divide-line">

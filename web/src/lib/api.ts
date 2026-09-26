@@ -31,7 +31,7 @@ export interface CertInfo {
 export interface HealthCheck { id: string; name: string; ok: boolean; detail: string }
 export interface Status {
   health: { healthy: boolean; checks: HealthCheck[] };
-  tunnel: { ready: number; connector: string | null } | null;
+  tunnel: { ready: number; connector: string | null; locations?: { id: number; colo: string }[]; requests?: number | null; errors?: number | null } | null;
   originCert: CertInfo | null;
   edgeCert: CertInfo | null;
   serverTime: string;

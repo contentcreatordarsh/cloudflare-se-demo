@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
-import { KPIS, type Kpi } from "../data/demo";
+import { compact, KPIS, type Kpi } from "../data/demo";
 import { useStore } from "../lib/store";
 import { Dot, SimTag } from "./ui";
 
@@ -29,7 +29,7 @@ function KpiCard({ k }: { k: Kpi }) {
     <div className="panel flex min-w-0 flex-col px-3 pt-2 pb-1">
       <div className="truncate text-[11.5px] text-muted" title={k.label}>{k.label}</div>
       <div className="mt-1 text-[21px] leading-none font-semibold tracking-tight num">
-        {v.toLocaleString("en-US")}{k.unit && <span className="ml-1 text-[14px] font-medium text-muted">{k.unit}</span>}
+        {compact(v)}{k.unit && <span className="ml-1 text-[14px] font-medium text-muted">{k.unit}</span>}
       </div>
       <div className="mt-1 flex items-center gap-0.5 text-[11.5px] font-semibold num" style={{ color: k.color }}>
         {up ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}{Math.abs(k.delta)}%
@@ -80,13 +80,31 @@ function OriginHealthCard() {
   );
 }
 
+function TunnelStatusCard() {
+  const { status, statusError } = useStore();
+  const t = status?.tunnel;
+  const up = !!t && t.ready > 0 && !statusError;
+  const colos = (t?.locations ?? []).map((l) => l.colo.toUpperCase());
+  return (
+    <div className="panel flex min-w-0 flex-col px-3 pt-2 pb-2" title={t ? `${t.ready} connections from cloudflared on EC2${colos.length ? ` to ${colos.join(", ")}` : ""}` : "Tunnel status pending"}>
+      <div className="flex items-center justify-between gap-1.5"><span className="truncate text-[11.5px] text-muted">Tunnel Status</span><span className="flex items-center" title="Live — read from cloudflared"><Dot pulse={up} tone={up ? "ok" : status ? "warn" : "dim"} /></span></div>
+      <div className={`mt-1 text-[19px] leading-none font-semibold tracking-tight ${up ? "text-ok" : status ? "text-warn" : "text-muted"}`}>{status ? (up ? "CONNECTED" : "DOWN") : "…"}</div>
+      <div className="mt-1 text-[11.5px] text-muted num">{t ? `${t.ready} edge connections` : "checking"}</div>
+      <div className="mt-auto flex flex-wrap gap-1 pt-1.5">
+        {colos.map((c) => <span key={c} className="rounded border border-ok/30 bg-ok/[0.07] px-1 font-mono text-[9.5px] text-[#5ff0b0]">{c}</span>)}
+      </div>
+    </div>
+  );
+}
+
 export function KpiRow() {
   return (
     <section>
-      <div className="mb-1 flex items-center gap-2"><span className="label">Edge telemetry · last 24 h</span><SimTag /></div>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-1 flex items-center gap-2"><span className="label">Edge telemetry · last 24 h</span><SimTag /><span className="text-[10.5px] text-dim">· Origin Health &amp; Tunnel Status are live</span></div>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
         {KPIS.map((k) => <KpiCard key={k.id} k={k} />)}
         <OriginHealthCard />
+        <TunnelStatusCard />
       </div>
     </section>
   );

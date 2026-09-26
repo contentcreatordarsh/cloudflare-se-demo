@@ -59,7 +59,7 @@ function Flow({ large = false }: { large?: boolean }) {
             <span className={`font-semibold text-brand num ${large ? "text-[22px]" : "text-[15px]"}`}>{100 - m.pct}%</span>
             <span className={`font-semibold num ${large ? "text-[17px]" : "text-[13px]"}`}>{fmtTB(m.origin)}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11.5px] font-medium"><Server className="size-3.5 text-brand" />Reaches AWS</div>
+          <div className="flex items-center gap-1.5 text-[11.5px] font-medium"><Server className="size-3.5 text-brand" />Origin-bound</div>
           <div className="flex items-center gap-1 truncate text-[10.5px] text-[#ffb070]" title="Traffic that reaches the AWS origin in ap-southeast-1 may incur AWS data transfer / egress charges">
             <TriangleAlert className="size-3 shrink-0" />May incur AWS egress charges
           </div>
@@ -76,7 +76,7 @@ function Controls({ full = false }: { full?: boolean }) {
     <div className="space-y-1.5 text-[12px]">
       <label className="flex items-center gap-3">
         <span className="shrink-0 text-muted">Edge-handled</span>
-        <input type="range" min={0} max={100} step={5} value={econ.pct} onChange={(e) => setEcon({ pct: Number(e.target.value) })}
+        <input type="range" min={0} max={100} step={1} value={econ.pct} onChange={(e) => setEcon({ pct: Number(e.target.value) })}
           aria-label="Edge-handled traffic percentage" className="h-1 flex-1 cursor-pointer accent-[var(--color-brand)]" />
         <span className="w-[42px] text-right font-mono text-fg num">{econ.pct}%</span>
       </label>
@@ -84,7 +84,7 @@ function Controls({ full = false }: { full?: boolean }) {
         <>
           <div className="flex items-center justify-between gap-3"><span className="text-muted">Total traffic</span><span className="font-mono num">{fmtTB(m.total)}</span></div>
           <div className="flex items-center justify-between gap-3"><span className="text-muted">Edge-handled</span><span className="font-mono text-cyan num">{econ.pct}% ({fmtTB(m.edge)})</span></div>
-          <div className="flex items-center justify-between gap-3"><span className="text-muted">Reaches AWS origin</span><span className="font-mono text-brand num">{100 - econ.pct}% ({fmtTB(m.origin)})</span></div>
+          <div className="flex items-center justify-between gap-3"><span className="text-muted">Origin-bound (reaches AWS)</span><span className="font-mono text-brand num">{100 - econ.pct}% ({fmtTB(m.origin)})</span></div>
           <div className="text-[11px] text-dim">Validate with the actual traffic profile.</div>
         </>
       )}
@@ -92,11 +92,13 @@ function Controls({ full = false }: { full?: boolean }) {
   );
 }
 
+const DISCLAIMER =
+  "AWS transfer economics must be validated against the actual architecture, traffic profile and AWS pricing. CloudFront has AWS-native transfer economics that differ from an independent Cloudflare-to-EC2 architecture. This model is illustrative.";
+
 const Disclaimer = ({ compact = false }: { compact?: boolean }) => (
-  <div className="flex items-center gap-2 rounded-md border border-warn/30 bg-warn/[0.07] px-2.5 py-1 text-[10.5px] text-[#f5d38a]"
-    title="AWS origin transfer economics depend on workload, architecture and your AWS pricing model. These numbers are illustrative.">
-    <TriangleAlert className="size-3.5 shrink-0" />
-    <span className={compact ? "truncate" : ""}>AWS transfer economics depend on workload, architecture and your AWS pricing. Illustrative numbers.</span>
+  <div className="flex items-start gap-2 rounded-md border border-warn/30 bg-warn/[0.07] px-2.5 py-1 text-[10.5px] leading-snug text-[#f5d38a]" title={DISCLAIMER}>
+    <TriangleAlert className="mt-px size-3.5 shrink-0" />
+    <span className={compact ? "truncate" : ""}>{compact ? "Validate AWS transfer economics against the real architecture, traffic and pricing. Illustrative." : DISCLAIMER}</span>
   </div>
 );
 
@@ -132,7 +134,7 @@ export function EdgeEconomicsPanel() {
 
 const PRESETS = [
   { label: "Mostly dynamic API", pct: 5 },
-  { label: "Typical trading platform", pct: 35 },
+  { label: "Typical trading platform", pct: 42 },
   { label: "Cache-heavy content", pct: 75 },
 ];
 
@@ -163,7 +165,7 @@ export function EdgeEconomicsFull() {
             ))}
           </div>
           <p className="mt-2 text-[12px] text-muted">
-            At {m.pct}% edge-handled, <span className="font-mono text-fg">{fmtTB(m.origin)}</span> of {fmtTB(m.total)} still reaches AWS each {econ.period === "annual" ? "year" : "month"}.
+            At {m.pct}% edge-handled, <span className="font-mono text-fg">{fmtTB(m.origin)}</span> of {fmtTB(m.total)} is origin-bound — it still reaches AWS each {econ.period === "annual" ? "year" : "month"}.
             {m.pct <= 10 && " For a mostly dynamic workload, model the AWS data transfer economics explicitly — don't assume savings."}
           </p>
         </div>
@@ -180,12 +182,14 @@ const ROWS: [string, string, string][] = [
   ["CDN", "CloudFront", "Cloudflare"],
   ["WAF", "AWS WAF", "Cloudflare WAF"],
   ["DDoS", "AWS Shield", "Cloudflare DDoS protection"],
-  ["Rate limiting", "AWS WAF rate-based rules", "Cloudflare rate limiting"],
+  ["Rate limiting", "AWS controls (WAF rate-based rules)", "Cloudflare Rate Limiting"],
+  ["Bot management", "AWS ecosystem", "Cloudflare Bot Management"],
   ["Edge compute", "Lambda@Edge / CloudFront Functions", "Workers"],
-  ["Origin", "AWS", "AWS"],
-  ["Zero Trust", "AWS-native services", "Access + Tunnel"],
-  ["Edge control plane", "AWS", "Cloudflare"],
-  ["Multi-cloud origin", "Requires additional architecture", "Origin-independent"],
+  ["Private access", "AWS ecosystem", "Cloudflare Access"],
+  ["Private connectivity", "AWS options", "Cloudflare Tunnel"],
+  ["Origin", "EC2", "EC2"],
+  ["AWS transfer economics", "AWS-native", "Must be modelled"],
+  ["Multi-cloud flexibility", "AWS-centric", "Origin-independent"],
 ];
 
 export function CompareModal() {
@@ -220,7 +224,7 @@ export function CompareModal() {
             </tbody>
           </table>
           <div className="mt-4 rounded-md border border-line-strong bg-ink-850 p-3">
-            <p className="text-[13px] font-medium">No winner here — architecture economics depend on traffic profile, security requirements, operational model and total cost.</p>
+            <p className="text-[13px] font-medium">No winner here. Both are valid architectures; the decision depends on traffic profile, security requirements, operational model and total cost.</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {["Traffic profile", "Security requirements", "Performance", "Operational complexity", "Data transfer economics", "Total cost"].map((t) => (
                 <span key={t} className="rounded border border-line-strong px-2 py-0.5 text-[11.5px] text-muted">{t}</span>

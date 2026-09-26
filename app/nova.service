@@ -1,0 +1,17 @@
+[Unit]
+Description=NOVA public application (Express)
+After=network.target
+
+[Service]
+User=nova
+WorkingDirectory=/opt/nova
+ExecStart=/usr/bin/node /opt/nova/server.js
+Environment=HOST=127.0.0.1 PORT=3000 NODE_ENV=production
+Restart=always
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

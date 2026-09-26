@@ -177,7 +177,7 @@ export function Globe({ sgRtt, originHealthy, originMs }: Props) {
 
           {arcs.map((a) => {
             const [x, y] = a.start;
-            const bw = 58, bh = 34;
+            const bw = Math.max(58, a.label.length * 7 + 20), bh = 34;
             const bx = clampX(x + (x < sg[0] ? -bw - 8 : 8), bw);
             const by = clampY(y - bh - 6, bh);
             return (

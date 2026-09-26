@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOVA · Digital Asset Infrastructure</title>
+<meta name="description" content="NOVA — a fictional Singapore digital-asset platform. Cloudflare-protected application running on AWS EC2 in Singapore.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="/"><span class="mark"></span>NOVA</a>
+  <nav><a href="/headers">Request Inspector</a><a href="https://tunnel.strikemap.space/secure">Staff Portal</a><a href="/healthz">System Health</a></nav>
+</header>
+<main class="wrap">
+  <section class="hero">
+    <p class="eyebrow">Singapore · Digital Assets · Global Trading</p>
+    <h1>NOVA</h1>
+    <p class="sub">Digital Asset Infrastructure</p>
+    <p class="tag">Secure. Fast. Global.</p>
+    <p class="lede">Cloudflare-protected application running on AWS EC2 — Singapore.</p>
+    <div class="live" id="live" aria-live="polite"><span class="dot"></span><span id="live-text">Checking this request…</span></div>
+  </section>
+
+  <section class="cards">
+    <a class="card action" href="/headers">
+      <span class="icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <span class="title">Request Inspector</span>
+      <span class="desc">See exactly what reached the origin: Ray ID, edge location, country, TLS and every header.</span>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card action" href="https://tunnel.strikemap.space/secure">
+      <span class="icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="10" x="4" y="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+      <span class="title">Staff Portal</span>
+      <span class="desc">Private operations app behind Cloudflare Access and Tunnel — no inbound ports on AWS.</span>
+      <span class="go">Sign in →</span>
+    </a>
+    <a class="card action" href="/healthz">
+      <span class="icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 8-6-16-3 8H2"/></svg></span>
+      <span class="title">System Health</span>
+      <span class="desc">Origin health check served by the Node.js service on EC2 in ap-southeast-1.</span>
+      <span class="go">View JSON →</span>
+    </a>
+  </section>
+
+  <section class="path" aria-label="Request path">
+    <span>Global users</span><i>→</i><span class="hl">Cloudflare edge</span><i>→</i><span>TLS · WAF · Rate limiting</span><i>→</i><span class="aws">AWS EC2 · ap-southeast-1</span>
+  </section>
+</main>
+<footer class="foot">NOVA is a fictional company used for a Cloudflare Solutions Engineering demo. Demo endpoints only — no real trading.</footer>
+</body>
+</html>

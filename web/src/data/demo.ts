@@ -22,18 +22,19 @@ export interface Kpi {
   value: number;
   unit?: string;
   delta: number; // percent vs previous 24h
-  good: "up" | "down";
   color: string;
   data: { i: number; v: number }[];
 }
 
+// Spec §14 top KPIs (simulated). Origin Health and Tunnel Status are live and rendered separately.
 export const KPIS: Kpi[] = [
-  { id: "total", label: "Total Requests", value: 12842, delta: 12, good: "up", color: "#2f80ed", data: series(7, 24, 520, 90, 4) },
-  { id: "waf", label: "Blocked (WAF)", value: 1284, delta: 8, good: "down", color: "#ff4d5a", data: series(11, 24, 48, 22, 0.8, [17, 21]) },
-  { id: "rl", label: "Rate Limited", value: 92, delta: -24, good: "down", color: "#f6821f", data: series(3, 24, 5, 4, -0.08, [9]) },
-  { id: "origin", label: "Origin Requests", value: 480, delta: -73, good: "down", color: "#00d084", data: series(5, 24, 20, 8, -0.2) },
-  { id: "latency", label: "Avg. Latency (Edge)", value: 48, unit: "ms", delta: -36, good: "down", color: "#5aa0ff", data: series(13, 24, 52, 10, -0.35) },
+  { id: "total", label: "Global Requests", value: 2_400_000, delta: 12, color: "#2f80ed", data: series(7, 24, 520, 90, 4) },
+  { id: "blocks", label: "Edge Blocks", value: 184_000, delta: 8, color: "#ff4d5a", data: series(11, 24, 48, 22, 0.8, [17, 21]) },
+  { id: "rl", label: "Rate Limited", value: 12_800, delta: -24, color: "#f6821f", data: series(3, 24, 5, 4, -0.08, [9]) },
 ];
+
+export const compact = (n: number) =>
+  n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, "")}M` : n >= 1e4 ? `${(n / 1e3).toFixed(n >= 1e5 ? 0 : 1).replace(/\.0$/, "")}K` : n.toLocaleString("en-US");
 
 export const TRAFFIC_MIX = [
   { key: "allowed", label: "Allowed", pct: 75, color: "#2f80ed" },
@@ -43,13 +44,13 @@ export const TRAFFIC_MIX = [
   { key: "origin", label: "Origin", pct: 2, color: "#00d084" },
 ] as const;
 
-// Globe traffic sources -> Singapore. RTTs are typical public-internet round trips to Singapore.
+// Globe traffic sources -> Singapore. DEMO TRAFFIC: typical public-internet RTTs to Singapore, not measured here.
 export const SOURCES = [
-  { id: "EU", label: "EU", city: "Frankfurt", ll: [8.68, 50.11] as [number, number], rtt: 155 },
-  { id: "IN", label: "IN", city: "Mumbai", ll: [72.88, 19.08] as [number, number], rtt: 58 },
-  { id: "JP", label: "JP", city: "Tokyo", ll: [139.69, 35.69] as [number, number], rtt: 70 },
-  { id: "AU", label: "AU", city: "Sydney", ll: [151.21, -33.87] as [number, number], rtt: 92 },
-  { id: "US", label: "US", city: "Los Angeles", ll: [-118.24, 34.05] as [number, number], rtt: 175 },
+  { id: "LON", label: "London", city: "London", ll: [-0.13, 51.51] as [number, number], rtt: 155 },
+  { id: "BOM", label: "Mumbai", city: "Mumbai", ll: [72.88, 19.08] as [number, number], rtt: 58 },
+  { id: "TYO", label: "Tokyo", city: "Tokyo", ll: [139.69, 35.69] as [number, number], rtt: 70 },
+  { id: "SYD", label: "Sydney", city: "Sydney", ll: [151.21, -33.87] as [number, number], rtt: 92 },
+  { id: "NYC", label: "New York", city: "New York", ll: [-74.0, 40.71] as [number, number], rtt: 142 },
 ];
 export const SINGAPORE: [number, number] = [103.82, 1.35];
 

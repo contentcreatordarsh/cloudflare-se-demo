@@ -88,7 +88,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState<Identity | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>("journey");
   const [attackOpen, setAttackOpen] = useState(false);
-  const [econ, setEconState] = useState<Econ>({ tb: 10, pct: 35, period: "monthly" });
+  const [econ, setEconState] = useState<Econ>({ tb: 50, pct: 42, period: "monthly" });
   const setEcon = useCallback((e: Partial<Econ>) => setEconState((prev) => ({ ...prev, ...e })), []);
   const [compareOpen, setCompareOpen] = useState(false);
   const seq = useRef(0);

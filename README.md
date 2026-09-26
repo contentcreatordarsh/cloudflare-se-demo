@@ -1,107 +1,91 @@
-# NOVA Edge Console — Cloudflare SE technical assignment
+# NOVA — Cloudflare SE technical project
 
-**NOVA** — a fictional Singapore digital-asset platform (trading APIs, web platform, customer apps) — runs its origin on AWS EC2 in ap-southeast-1 and puts Cloudflare in front of it:
+**NOVA** is a fictional Singapore digital-asset / trading platform. Its application is a deliberately simple
+Node.js service on **AWS EC2 in ap-southeast-1**; Cloudflare becomes the security and connectivity control plane
+around it.
 
-| Surface | URL | Cloudflare products |
-|---|---|---|
-| Partner **Request Inspector** — shows partners exactly what reached our origin | https://app.strikemap.space | DNS + proxy, SSL/TLS Full (strict), rate limiting |
-| Staff **identity portal** — internal tool, no inbound ports | https://tunnel.strikemap.space/secure | Tunnel, Zero Trust Access, Workers, R2 |
+> NOVA is a made-up company used to frame the demo. No real trading, balances or market data.
 
-> NOVA is a made-up company used to frame the demo.
+## URL map
+
+| Purpose | URL |
+|---|---|
+| **Public NOVA application** (Express on EC2) | https://nova.strikemap.space · [`/headers`](https://nova.strikemap.space/headers) · [`/healthz`](https://nova.strikemap.space/healthz) · [`/api/orders`](https://nova.strikemap.space/api/orders) |
+| **Private staff application** (Access → Worker → Tunnel → EC2) | https://tunnel.strikemap.space · https://tunnel.strikemap.space/secure |
+| **NOVA Edge Console** (presentation layer) | https://app.strikemap.space |
 
 ## Architecture
 
 ```
-                         Browser
-                            │ HTTPS
-                            ▼
- ┌──────────────────── Cloudflare edge ─────────────────────┐
- │ app.strikemap.space            tunnel.strikemap.space     │
- │  • proxied A record             • Access app on /secure   │
- │  • rate limit: /headers         • Worker route /secure*   │
- │    5 req / 10 s / IP → 429          └─► R2 (private)      │
- │  • Full (strict) TLS                    flags/<cc>.svg    │
- └────────┬──────────────────────────────────┬──────────────┘
-          │ HTTPS :443 (Let's Encrypt cert)  │ outbound-only tunnel
-          ▼                                  ▼
- ┌──────────── AWS EC2 t3.micro · ap-southeast-1 ────────────┐
- │ Security group: 443 from Cloudflare IP ranges only        │
- │ Nginx :443 ──► Node.js 127.0.0.1:8080 ◄── cloudflared      │
- └───────────────────────────────────────────────────────────┘
+                    GLOBAL USERS
+                         │
+                         ▼
+ ┌───────────────────── CLOUDFLARE ───────────────────────┐
+ │ DNS / proxy · Full (strict) TLS · WAF · DDoS            │
+ │ Rate limiting (/api/orders, /headers) · Access · Worker │
+ └──────────┬──────────────────────────────┬──────────────┘
+            │ nova.strikemap.space         │ tunnel.strikemap.space
+            │ HTTPS, Let's Encrypt origin  │ Access (whole host) → Worker (/secure*)
+            │                              │   └─► private R2 (nova-country-flags)
+            ▼                              ▼ outbound-only Cloudflare Tunnel
+ ┌──────────── AWS EC2 t3.micro · ap-southeast-1 ─────────────┐
+ │ Security group: 443 from Cloudflare IP ranges · SSH admin IP │
+ │ Nginx :443 ─► Express 127.0.0.1:3000 ◄─ cloudflared          │
+ └──────────────────────────────────────────────────────────────┘
 ```
+
+## What each piece does
+
+| Requirement | Implementation |
+|---|---|
+| Origin returning request headers | `app/routes/headers.js` — `curl` gets JSON of every header; browsers get the NOVA Request Inspector (Ray ID, edge, country, TLS, origin, raw headers) |
+| Proxy through Cloudflare | `nova` A record, orange-clouded ([cloudflare/dns.md](cloudflare/dns.md)) |
+| Full (strict) with a non-Cloudflare cert | Let's Encrypt via DNS-01, Nginx terminates TLS ([cloudflare/tls.md](cloudflare/tls.md)) |
+| Rate limiting | `/api/orders`: 5 req / 10 s per IP → 429 ([cloudflare/rate-limit.md](cloudflare/rate-limit.md)) |
+| Cloudflare Tunnel | `tunnel.strikemap.space` → `localhost:3000` ([cloudflare/tunnel.md](cloudflare/tunnel.md)) |
+| SSO / Access | One-time PIN; policy **NOVA Staff** = owner or `@cloudflare.com` ([cloudflare/access.md](cloudflare/access.md)) |
+| Worker | `worker/src/index.js` — verifies the Access JWT, renders `${EMAIL} authenticated at ${TIMESTAMP} from ${COUNTRY}` (HTML), calls EC2 **through the Tunnel** for live origin/tunnel status (the origin re-verifies the JWT), `/secure/<CC>` streams the flag |
+| Private R2 | `nova-country-flags`, keys `SG.svg` …, no public access ([cloudflare/r2.md](cloudflare/r2.md)) |
+| Origin lockdown | Direct `http(s)://<origin-ip>` times out; apps listen on loopback only |
+
+## Seven-step live demo
+
+1. **Public application** — open https://nova.strikemap.space/headers (request, Ray ID, country, TLS, origin, status).
+2. **Full (strict) TLS** — Browser → HTTPS → Cloudflare → HTTPS (validated Let's Encrypt cert) → EC2.
+3. **Rate limiting** — `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\n" https://nova.strikemap.space/api/orders; done` → `200 ×5`, then `429`.
+4. **Tunnel + Access** — open https://tunnel.strikemap.space → Access login.
+5. **Worker identity** — after login: email, country, timestamp (SGT), policy, live Tunnel/origin status.
+6. **Private R2** — click the country → Worker reads `SG.svg` from the private bucket.
+7. **Origin bypass** — `curl -m 5 http://<origin-ip>` → times out.
 
 ## The Edge Console (app.strikemap.space)
 
-A React + Vite + TypeScript command center (Tailwind, Lucide, Recharts) with a Cloudflare-inspired charcoal/orange design served by Nginx from EC2, backed by a
-zero-dependency Node API. It tells one story — *why put Cloudflare between NOVA's users and AWS?* — and
-everything the presenter clicks is **live**:
-
-| Feature | Live source |
-|---|---|
-| **Request Journey** — Browser → Cloudflare edge → WAF → Rate limit → TLS → AWS → app, with per-hop timings | `/cdn-cgi/trace` (answered by the edge: colo, HTTP version, client TLS, post-quantum key exchange) + `/api/quote` on the origin (Ray ID, edge→origin TLS from Nginx, app time) + Resource Timing |
-| **Try an example** — *Blocked Request* / *Rate Limited* | real XSS probe answered **403** by a WAF custom rule; real burst to `/headers` answered **429** by the rate-limit rule — neither ever reaches AWS |
-| **Security (WAF)** | live probes (legit / XSS / SQLi / `/.env`) with Ray IDs |
-| **Rate Limiting** | "Verify against the production rule": 12 real requests → 5×200 then 429s |
-| **TLS & Certificates** | origin cert read on EC2 (`X509Certificate`), edge cert via a live TLS handshake, Nginx `$ssl_protocol` |
-| **Staff Portal (Access)** | real Access session: the Worker's `/secure/whoami` returns the identity from the verified JWT (same-site, CORS-restricted) |
-| **Logs & Analytics** | origin request log (what reached AWS) next to this browser's edge-blocked responses |
-| **Origin Health / System Healthy** | cloudflared `/ready` (tunnel connections), cert expiry, API liveness |
-| **Edge Economics** (NEW) | an *illustrative* traffic model: monthly TB × edge-handled % → TB that still reaches AWS (may incur AWS egress). Deliberately no pricing and no "Cloudflare is cheaper" claim; *Compare Architecture* shows AWS-native vs Cloudflare + AWS without a winner |
-
-Clearly marked **Simulated**: the 24 h KPI tiles, the Live Traffic mix and requests/sec chart, and the "Simulate Attack" / large-burst
-animations (illustrative numbers, per the brief). Each simulation links to its live proof.
-
-**Demo moment:** *Try an example → Rate Limited* (6th request gets 429 at the edge) → *Logs & Analytics*: the
-blocked requests appear only as **Edge** rows — they never reached the origin.
+React + Vite + TypeScript (Tailwind, Lucide, Recharts), Cloudflare-inspired charcoal/orange design. It visualises the
+real controls — every interactive demo (request trace, WAF 403, rate-limit 429, TLS, tunnel health, Access identity,
+origin log) is **live**. KPI totals, traffic mix, globe RTTs, the failover drill and the attack animation are labelled
+**Simulated / Demo**. Includes Security, Resiliency and Production-readiness panels and **Edge Economics**: an
+illustrative edge-handled vs origin-bound traffic model with an AWS-native vs Cloudflare + AWS comparison that names
+no winner.
 
 ## Repository layout
 
 ```
-web/        React console (Vite). scripts/gen-geo.mjs builds the globe + map dots from Natural Earth
-origin/     server.js (JSON API), nginx + systemd config, EC2 user-data
-worker/     Wrangler project for /secure* (Access JWT verification, R2 flags, /secure/whoami)
-r2/flags/   257 country flag SVGs (flag-icons, MIT) uploaded to the private bucket
-scripts/    deploy-origin.sh (build + ship console, API, nginx, cert), upload-flags.sh
+app/          NOVA public application (Express): server.js, routes/, lib/edge.js, public/
+worker/       /secure* Worker (Wrangler)
+r2/flags/     country flags (flag-icons, MIT) → uploaded to the private bucket
+cloudflare/   dns · tls · rate-limit · tunnel · access · r2 runbooks
+web/          NOVA Edge Console (React/Vite)
+origin/       Edge Console API (Node), Nginx + systemd config, EC2 user-data
+scripts/      deploy-origin.sh (build + ship app, console, Nginx, certs), upload-flags.sh
 ```
 
-## How each requirement is met
-
-1. **Domain on Cloudflare** — `strikemap.space`, nameservers `monroe`/`remy.ns.cloudflare.com`.
-2. **Origin returning all request headers** — `origin/server.js`: `GET /headers` returns every request header as JSON (the console's Request Inspector renders them with the hop that added each one).
-3. **Proxied through Cloudflare** — `app` A record → EC2 Elastic IP, orange-clouded.
-4. **Full (strict) with a non-Cloudflare certificate** — Let's Encrypt cert issued via the **DNS-01** challenge against Cloudflare DNS (no port 80 ever opened), terminated by Nginx.
-5. **Rate limiting** — rule on `app.strikemap.space/headers`: 5 requests / 10 s per IP → block for 60 s with a JSON 429.
-   Also deployed: a WAF custom rule (XSS / SQLi / `/.env` probes → JSON 403) and the Cloudflare Managed Ruleset.
-6. **Cloudflare Tunnel** — remotely-managed tunnel `siampay-origin`, `tunnel.strikemap.space` → `http://localhost:8080`.
-7. **SSO IdP** — Cloudflare Zero Trust with One-time PIN.
-8. **Lock down `/secure`** — Access self-hosted app on `tunnel.strikemap.space/secure`; allow policy = the owner's email **or** any `@cloudflare.com` email.
-   **No bypass:** the EC2 security group only admits Cloudflare IP ranges on 443 (SSH from one admin IP), Node listens on loopback, Nginx rejects TLS handshakes for any other hostname (e.g. the raw IP), and the Worker has `workers_dev = false`.
-9. **Worker + private R2** — `worker/src/index.js`, deployed with `wrangler deploy`:
-   - verifies the `Cf-Access-Jwt-Assertion` JWT (RS256 signature against the team JWKS, issuer, audience, expiry) instead of trusting a plain header;
-   - `GET /secure` → HTML: `${EMAIL} authenticated at ${TIMESTAMP} from ${COUNTRY}` — timestamp is the Access login time (JWT `iat`), country is `request.cf.country`, and the country links to `/secure/${COUNTRY}`;
-   - `GET /secure/${COUNTRY}` → the flag streamed from the private bucket with `content-type: image/svg+xml`.
-
-## Try it
-
-| Check | How |
-|---|---|
-| Headers through Cloudflare | open https://app.strikemap.space/headers |
-| Rate limit | `for i in $(seq 1 12); do curl -s -o /dev/null -w "%{http_code} " https://app.strikemap.space/headers; done` → `200 ×5` then `429` |
-| Origin bypass blocked | `curl -k -m 5 https://46.137.224.57` → times out |
-| Access + Worker + R2 | open https://tunnel.strikemap.space/secure, sign in with an `@cloudflare.com` email (One-time PIN), click the country |
-| Spoofed identity rejected | `curl -H "cf-access-authenticated-user-email: x@cloudflare.com" …` never reaches the Worker without a valid Access JWT |
-
-## Deploy it yourself
+## Deploy
 
 ```bash
-# Worker
-cd worker && npm install && npx wrangler deploy
-
-# Flags → private R2
+cd web && npm install && cd ..
+ORIGIN_IP=<elastic-ip> ./scripts/deploy-origin.sh      # app/ + console + Nginx + certs
+cd worker && npx wrangler deploy                        # /secure Worker
 CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… ./scripts/upload-flags.sh
-
-# Console + origin (after launching EC2 with origin/bootstrap.sh as user-data)
-cd web && npm install && cd .. && ORIGIN_IP=<elastic-ip> ./scripts/deploy-origin.sh
 ```
 
-Secrets (API tokens, the tunnel token, the TLS private key, SSH keys) are never committed.
+Secrets (API tokens, tunnel token, TLS private keys, SSH keys) are never committed.

@@ -37,6 +37,16 @@ const TONES: Record<string, string> = {
 
 function JourneyRow({ j, running }: { j: Journey | null; running: boolean }) {
   const nodes = journeyNodes(j);
+  const { setTab } = useStore();
+  // Clicking a node opens the panel that demonstrates that control.
+  const open = (key: string) => {
+    if (key === "browser" || key === "edge") navigate("/inspector");
+    else if (key === "waf") navigate("/security");
+    else if (key === "rl") setTab("ratelimit");
+    else if (key === "tls") setTab("tls");
+    else if (key === "aws") navigate("/", { hash: "resiliency" });
+    else setTab("logs");
+  };
   return (
     <div className="grid grid-cols-7 items-start gap-0" key={j?.at ?? "idle"}>
       {nodes.map((n, i) => {
@@ -46,7 +56,7 @@ function JourneyRow({ j, running }: { j: Journey | null; running: boolean }) {
         const next = nodes[i + 1];
         const flowing = !!next && next.state !== "skip" && next.state !== "idle" && n.state === "pass";
         return (
-          <div key={n.key} className="relative flex flex-col items-center text-center">
+          <button type="button" key={n.key} onClick={() => open(n.key)} title={`Open the ${n.name} demo`} className="group relative flex flex-col items-center rounded-md text-center">
             {i < nodes.length - 1 && (
               <div className="absolute top-[18px] left-[calc(50%+22px)] h-px w-[calc(100%-44px)]" aria-hidden>
                 <div className={`h-px w-full ${flowing ? "bg-gradient-to-r from-brand/70 to-brand-soft/70" : n.state === "block" ? "bg-bad/40" : "bg-line-strong"}`} />
@@ -57,13 +67,13 @@ function JourneyRow({ j, running }: { j: Journey | null; running: boolean }) {
                 )}
               </div>
             )}
-            <span className={`relative z-10 grid size-[38px] place-items-center rounded-full border transition ${cls} ${running ? "animate-pulse" : ""}`}>
+            <span className={`relative z-10 grid size-[38px] place-items-center rounded-full border transition group-hover:scale-110 ${cls} ${running ? "animate-pulse" : ""}`}>
               <n.icon className="size-[17px]" />
             </span>
             <span className="mt-1.5 max-w-[78px] text-[11.5px] leading-tight font-semibold">{n.name}</span>
             <span className={`mt-0.5 max-w-full truncate px-0.5 text-[10.5px] ${n.state === "block" ? "font-semibold text-bad" : n.state === "pass" && ["waf", "rl"].includes(n.key) ? "text-ok" : n.key === "edge" && n.state === "pass" ? "text-brand-soft" : "text-muted"}`}>{n.sub}</span>
             <span className="text-[10.5px] text-dim num">{n.metric}</span>
-          </div>
+          </button>
         );
       })}
     </div>

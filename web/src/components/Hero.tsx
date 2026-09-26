@@ -31,7 +31,7 @@ export function Hero() {
         </h1>
         <p className="mt-2.5 text-[17px] font-semibold tracking-tight">Secure. Fast. Global.</p>
         <p className="mt-1 max-w-[470px] text-[13px] leading-relaxed text-muted">
-          Real-time visibility into how Cloudflare protects and accelerates NOVA's trading APIs, web platform and customer applications.
+          Real-time visibility into how Cloudflare protects and accelerates NOVA's global trading platform.
         </p>
         <div className="mt-3 grid max-w-[520px] grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
           {CHIPS.map((c) => (
@@ -56,7 +56,7 @@ export function Hero() {
 
       <div className="relative min-h-[284px]">
         <Globe sgRtt={edge?.colo === "SIN" ? edge.ms : null} originHealthy={status ? status.health.healthy : null} originMs={originMs} />
-        <p className="pointer-events-none absolute bottom-0.5 left-2 text-[10.5px] text-dim">Typical RTT to Singapore · SIN shows your live edge round trip</p>
+        <p className="pointer-events-none absolute bottom-0.5 left-2 flex items-center gap-1.5 text-[10.5px] text-dim"><span className="sim-tag">Demo traffic</span>typical RTT to Singapore · SIN = your live edge round trip</p>
       </div>
     </section>
   );

@@ -58,10 +58,17 @@ function refreshEdgeCert() { // the browser-facing certificate, read through Clo
   sock.on("error", () => {});
   sock.on("timeout", () => sock.destroy());
 }
-async function refreshTunnel() { // cloudflared readiness = active connections to the Cloudflare edge
+async function refreshTunnel() { // cloudflared readiness + per-connection Cloudflare edge locations
   try {
     const j = await (await fetch(TUNNEL_READY_URL, { signal: AbortSignal.timeout(1500) })).json();
-    state.tunnel = { ready: Number(j.readyConnections) || 0, connector: j.connectorId || null };
+    const t = { ready: Number(j.readyConnections) || 0, connector: j.connectorId || null, locations: [], requests: null, errors: null };
+    try {
+      const m = await (await fetch(TUNNEL_READY_URL.replace(/\/ready$/, "/metrics"), { signal: AbortSignal.timeout(1500) })).text();
+      t.locations = [...m.matchAll(/cloudflared_tunnel_server_locations\{connection_id="(\d+)",edge_location="([a-z0-9]+)"\} 1/g)].map((x) => ({ id: Number(x[1]), colo: x[2] }));
+      t.requests = Number((m.match(/^cloudflared_tunnel_total_requests (\d+)/m) || [])[1] ?? NaN) || 0;
+      t.errors = Number((m.match(/^cloudflared_tunnel_request_errors (\d+)/m) || [])[1] ?? NaN) || 0;
+    } catch {}
+    state.tunnel = t;
   } catch { state.tunnel = null; }
 }
 refreshOriginCert(); refreshEdgeCert(); refreshTunnel();
