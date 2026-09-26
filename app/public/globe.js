@@ -10,7 +10,7 @@
   const RAD = Math.PI / 180;
   const C = [103, 10]; // view centre (lon, lat)
   const SG = [103.82, 1.35];
-  const CITIES = [["London", -0.13, 51.51], ["New York", -74.0, 40.71], ["Tokyo", 139.69, 35.69], ["Sydney", 151.21, -33.87], ["Frankfurt", 8.68, 50.11], ["Dubai", 55.27, 25.2], ["Mumbai", 72.88, 19.08], ["Hong Kong", 114.17, 22.32], ["Seoul", 126.98, 37.57], ["San Francisco", -122.42, 37.77], ["Perth", 115.86, -31.95], ["Jakarta", 106.85, -6.21]];
+  const CITIES = [["London", -0.13, 51.51], ["New York", -74.0, 40.71], ["Tokyo", 139.69, 35.69], ["Sydney", 151.21, -33.87], ["Frankfurt", 8.68, 50.11], ["Dubai", 55.27, 25.2], ["Mumbai", 72.88, 19.08], ["Hong Kong", 114.17, 22.32], ["Seoul", 126.98, 37.57], ["Perth", 115.86, -31.95], ["Jakarta", 106.85, -6.21]];
   const LABELS = new Set(["London", "New York", "Tokyo", "Sydney"]);
   let dots = null, W = 0, H = 0, r = 0, cx = 0, cy = 0, dpr = 1, base = null, arcs = [], labels = [];
 
@@ -36,7 +36,7 @@
     if (!W || !H) return false;
     dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = W * dpr; canvas.height = H * dpr;
-    r = Math.min(W * 0.48, H * 0.49); cx = W * 0.52; cy = H * 0.5;
+    r = Math.min(W, H) * 0.44; cx = W * 0.54; cy = H * 0.5; // glow (1.12r) stays inside the canvas
     return true;
   }
 
@@ -45,9 +45,9 @@
     base.width = W * dpr; base.height = H * dpr;
     const g = base.getContext("2d");
     g.scale(dpr, dpr);
-    const atm = g.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * 1.22);
+    const atm = g.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * 1.12);
     atm.addColorStop(0, "rgba(246,130,31,0.20)"); atm.addColorStop(0.35, "rgba(246,130,31,0.06)"); atm.addColorStop(1, "rgba(246,130,31,0)");
-    g.fillStyle = atm; g.beginPath(); g.arc(cx, cy, r * 1.22, 0, Math.PI * 2); g.fill();
+    g.fillStyle = atm; g.beginPath(); g.arc(cx, cy, r * 1.12, 0, Math.PI * 2); g.fill();
     const body = g.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.05, cx, cy, r * 1.02);
     body.addColorStop(0, "#1b1f26"); body.addColorStop(0.6, "#0e1116"); body.addColorStop(1, "#07080a");
     g.fillStyle = body; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
@@ -84,10 +84,9 @@
         const t = i / 90;
         const [plon, plat] = slerp(from, to, t);
         const [x, y, c] = project(plon, plat);
-        const L = 1 + lift * Math.sin(Math.PI * t);
+        const L = 1 + lift * Math.sin(Math.PI * t) * Math.min(1, c * 3); // hug the globe near the horizon
         const X = cx + (x - cx) * L, Y = cy + (y - cy) * L;
-        const outside = Math.hypot(X - cx, Y - cy) > r;
-        if (c > 0 || (outside && c > -0.12)) pts.push([X, Y]); else pts.length = 0; // restart after the horizon
+        if (c > 0.1) pts.push([X, Y]); else pts.length = 0; // only the visible hemisphere; restart after the horizon
       }
       return { name, pts };
     });

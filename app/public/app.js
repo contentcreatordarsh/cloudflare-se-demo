@@ -33,7 +33,9 @@
   const sparkPath = (pts, w = 120, h = 36, pad = 2) => {
     if (!pts || pts.length < 2) return "";
     const ts = pts.map((p) => p[0]), ps = pts.map((p) => p[1]);
-    const t0 = Math.min(...ts), t1 = Math.max(...ts), lo = Math.min(...ps), hi = Math.max(...ps);
+    const t0 = Math.min(...ts), t1 = Math.max(...ts);
+    const mid = (Math.min(...ps) + Math.max(...ps)) / 2, half = Math.max((Math.max(...ps) - Math.min(...ps)) / 2, mid * 0.0075); // floor: ±0.75%
+    const lo = mid - half, hi = mid + half;
     const x = (t) => pad + ((t - t0) / (t1 - t0 || 1)) * (w - pad * 2);
     const y = (p) => h - pad - ((p - lo) / (hi - lo || 1)) * (h - pad * 2);
     return pts.map((p, i) => `${i ? "L" : "M"}${x(p[0]).toFixed(1)} ${y(p[1]).toFixed(1)}`).join("");

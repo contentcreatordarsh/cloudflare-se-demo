@@ -126,14 +126,14 @@ function refresh(kind = "demand") {
   return inflight;
 }
 
-// 24h sparkline from our own samples. Where the samples don't cover a point yet, CoinMarketCap's own
-// percent_change_24h / percent_change_1h give the 24h-ago and 1h-ago prices (price / (1 + change/100)) — derived
+// 24h sparkline from our own samples. Where the samples don't reach back 24h yet, CoinMarketCap's own
+// percent_change_24h gives the 24h-ago price (price / (1 + change/100)) — derived
 // from the quote, never invented.
 function sparkline(a, fetchedAt) {
   const pts = (history[a.symbol] || []).filter(([t]) => fetchedAt - t <= WINDOW).slice();
   if (!pts.length || pts[pts.length - 1][0] < fetchedAt) pts.push([fetchedAt, a.price]);
   const covered = (t) => pts.some(([pt]) => Math.abs(pt - t) < 30 * 60 * 1000);
-  for (const [ago, chg] of [[WINDOW, a.change24h], [3600 * 1000, a.change1h]]) {
+  for (const [ago, chg] of [[WINDOW, a.change24h]]) {
     if (chg !== null && chg !== undefined && !covered(fetchedAt - ago)) pts.push([fetchedAt - ago, a.price / (1 + chg / 100)]);
   }
   pts.sort((x, y) => x[0] - y[0]);

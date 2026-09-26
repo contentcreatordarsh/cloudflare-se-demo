@@ -52,20 +52,18 @@ function volumeCard(m) {
 }
 
 // Stylised Singapore waterfront — decorative backdrop for the platform section.
-const SKYLINE = `<svg class="skyline" viewBox="0 0 1440 360" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#080a0d" stop-opacity="0"/><stop offset=".62" stop-color="#3a1d07" stop-opacity=".55"/><stop offset=".8" stop-color="#f6821f" stop-opacity=".35"/><stop offset=".81" stop-color="#07080b"/><stop offset="1" stop-color="#050608"/></linearGradient>
-<linearGradient id="bld" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#15181e"/><stop offset="1" stop-color="#0a0c10"/></linearGradient></defs>
-<rect width="1440" height="360" fill="url(#sky)"/>
-<g fill="url(#bld)">
-<path d="M0 292V214h34v-20h26v98zm66 0V170h30v122zm36 0V236h22v56zm28 0V150h38v142zm44 0V198h24v94zm30 0V112h36v180zm42 0V176h26v116zm32 0V84h34v208zm40 0V160h28v132zm34 0V206h40v86zm46 0V232h30v60z"/>
-<path d="M880 292V150h46v142zm60 0V150h46v142zm60 0V150h46v142z"/>
-<path d="M868 150c60-12 150-14 214-6l6 10c-70-6-150-4-222 4z"/>
-<path d="M1150 292v-72h30v72zm36 0v-112h26v112zm32 0v-60h40v60zm46 0v-140h30v140zm36 0v-90h28v90zm34 0v-50h34v50zm40 0v-120h24v120zm30 0v-76h40v76z"/>
-<path d="M560 292v-44h60v44zm70 0v-70h30v70zm36 0v-30h80v30zm90 0v-58h26v58z"/>
+const SKYLINE = `<svg class="skyline" viewBox="0 0 1440 200" preserveAspectRatio="none" aria-hidden="true">
+<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#080a0d" stop-opacity="0"/><stop offset=".55" stop-color="#2a1506" stop-opacity=".6"/><stop offset=".84" stop-color="#f6821f" stop-opacity=".28"/><stop offset=".85" stop-color="#07080b"/><stop offset="1" stop-color="#050608"/></linearGradient></defs>
+<rect width="1440" height="200" fill="url(#sky)"/>
+<g fill="#0c0e12">
+<path d="M0 170v-34h18v-10h22v44zm46 0v-58h16v58zm22 0v-26h14v26zm20 0v-70h20v70zm26 0v-40h14v40zm20 0v-88h18v88zm24 0v-54h16v54zm22 0v-100h18v100zm24 0v-62h16v62zm22 0v-38h22v38zm28 0v-24h18v24z"/>
+<path d="M430 170v-20h40v20zm48 0v-34h16v34zm22 0v-14h44v14zm50 0v-28h14v28z"/>
+<path d="M872 170l6-98h26l2 98zm58 0l6-98h26l2 98zm58 0l6-98h26l2 98z"/>
+<path d="M858 72c56-8 146-9 196-3l3 6c-58-4-140-3-199 3z"/>
+<path d="M1110 170v-36h18v36zm24 0v-58h14v58zm20 0v-30h24v30zm30 0v-74h16v74zm22 0v-46h16v46zm22 0v-26h20v26zm26 0v-64h14v64zm20 0v-40h24v40zm30 0v-22h40v22zm46 0v-50h14v50zm20 0v-30h30v30z"/>
 </g>
-<circle cx="1330" cy="232" r="52" fill="none" stroke="#1d2129" stroke-width="3"/><path d="M1330 232v60" stroke="#1d2129" stroke-width="4"/>
-<g fill="#ffb366" opacity=".55"><rect x="178" y="130" width="3" height="3"/><rect x="190" y="150" width="3" height="3"/><rect x="274" y="104" width="3" height="3"/><rect x="284" y="126" width="3" height="3"/><rect x="146" y="176" width="3" height="3"/><rect x="890" y="170" width="3" height="3"/><rect x="904" y="196" width="3" height="3"/><rect x="956" y="182" width="3" height="3"/><rect x="1018" y="164" width="3" height="3"/><rect x="1030" y="210" width="3" height="3"/><rect x="1270" y="170" width="3" height="3"/><rect x="1196" y="200" width="3" height="3"/><rect x="1362" y="190" width="3" height="3"/></g>
-<g stroke="#f6821f" stroke-opacity=".22" stroke-width="2"><path d="M880 306h46M940 314h46M1000 306h46M300 310h40M150 318h60M1270 312h50"/></g>
+<g fill="#ffb366" opacity=".5"><rect x="150" y="96" width="2" height="2"/><rect x="158" y="118" width="2" height="2"/><rect x="200" y="82" width="2" height="2"/><rect x="206" y="104" width="2" height="2"/><rect x="884" y="96" width="2" height="2"/><rect x="942" y="112" width="2" height="2"/><rect x="1004" y="90" width="2" height="2"/><rect x="1190" y="110" width="2" height="2"/><rect x="1262" y="120" width="2" height="2"/></g>
+<g stroke="#f6821f" stroke-opacity=".2" stroke-width="1.5"><path d="M874 178h30M932 184h30M990 178h30M150 182h40M1180 180h36"/></g>
 </svg>`;
 
 const FEATS = [
