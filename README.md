@@ -10,7 +10,7 @@ around it.
 
 | Purpose | URL |
 |---|---|
-| **Public NOVA application** (Express on EC2) | https://nova.strikemap.space · [`/headers`](https://nova.strikemap.space/headers) · [`/healthz`](https://nova.strikemap.space/healthz) · [`/api/orders`](https://nova.strikemap.space/api/orders) |
+| **Public NOVA application** (Express on EC2) | https://nova.strikemap.space · [`/markets`](https://nova.strikemap.space/markets) · [`/api`](https://nova.strikemap.space/api) · [`/status`](https://nova.strikemap.space/status) · [`/headers`](https://nova.strikemap.space/headers) · [`/healthz`](https://nova.strikemap.space/healthz) · `POST /api/orders` |
 | **Private staff application** (Access → Worker → Tunnel → EC2) | https://tunnel.strikemap.space · https://tunnel.strikemap.space/secure |
 | **NOVA Edge Console** (presentation layer) | https://app.strikemap.space |
 
@@ -41,7 +41,7 @@ around it.
 | Origin returning request headers | `app/routes/headers.js` — `curl` gets JSON of every header; browsers get the NOVA Request Inspector (Ray ID, edge, country, TLS, origin, raw headers) |
 | Proxy through Cloudflare | `nova` A record, orange-clouded ([cloudflare/dns.md](cloudflare/dns.md)) |
 | Full (strict) with a non-Cloudflare cert | Let's Encrypt via DNS-01, Nginx terminates TLS ([cloudflare/tls.md](cloudflare/tls.md)) |
-| Rate limiting | `/api/orders`: 5 req / 10 s per IP → 429 ([cloudflare/rate-limit.md](cloudflare/rate-limit.md)) |
+| Rate limiting | `POST /api/orders`: 5 req / 10 s per IP → 429 ([cloudflare/rate-limit.md](cloudflare/rate-limit.md)) |
 | Cloudflare Tunnel | `tunnel.strikemap.space` → `localhost:3000` ([cloudflare/tunnel.md](cloudflare/tunnel.md)) |
 | SSO / Access | One-time PIN; policy **NOVA Staff** = owner or `@cloudflare.com` ([cloudflare/access.md](cloudflare/access.md)) |
 | Worker | `worker/src/index.js` — verifies the Access JWT, renders `${EMAIL} authenticated at ${TIMESTAMP} from ${COUNTRY}` (HTML), calls EC2 **through the Tunnel** for live origin/tunnel status (the origin re-verifies the JWT), `/secure/<CC>` streams the flag |
@@ -52,7 +52,7 @@ around it.
 
 1. **Public application** — open https://nova.strikemap.space/headers (request, Ray ID, country, TLS, origin, status).
 2. **Full (strict) TLS** — Browser → HTTPS → Cloudflare → HTTPS (validated Let's Encrypt cert) → EC2.
-3. **Rate limiting** — `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\n" https://nova.strikemap.space/api/orders; done` → `200 ×5`, then `429`.
+3. **Rate limiting** — `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\n" -X POST https://nova.strikemap.space/api/orders -H "Content-Type: application/json" -d '{"symbol":"BTC-USDT","side":"buy","quantity":0.01}'; done` → `200 ×5`, then `429` (or submit orders on `/markets`).
 4. **Tunnel + Access** — open https://tunnel.strikemap.space → Access login.
 5. **Worker identity** — after login: email, country, timestamp (SGT), policy, live Tunnel/origin status.
 6. **Private R2** — click the country → Worker reads `SG.svg` from the private bucket.
@@ -70,7 +70,8 @@ no winner.
 ## Repository layout
 
 ```
-app/          NOVA public application (Express): server.js, routes/, lib/edge.js, public/
+app/          NOVA public application (Express): server.js, routes/ (pages, headers, orders, health, staff),
+              lib/ (layout, edge/Access helpers), public/ (styles, app.js)
 worker/       /secure* Worker (Wrangler)
 r2/flags/     country flags (flag-icons, MIT) → uploaded to the private bucket
 cloudflare/   dns · tls · rate-limit · tunnel · access · r2 runbooks

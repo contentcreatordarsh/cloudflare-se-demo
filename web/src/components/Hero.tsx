@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Zap } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Check, Zap } from "lucide-react";
 import { navigate } from "../lib/router";
 import { useStore } from "../lib/store";
 import { Globe } from "./Globe";
@@ -51,6 +51,9 @@ export function Hero() {
           <button className="btn-ghost h-10 px-4" onClick={() => setAttackOpen(true)}>
             <Zap className="size-4 text-brand" fill="currentColor" /> Simulate Attack
           </button>
+          <a className="inline-flex h-10 items-center gap-1.5 px-2 text-[12.5px] font-semibold tracking-wide text-muted uppercase hover:text-brand-soft" href="https://nova.strikemap.space" target="_blank" rel="noopener">
+            Open public application <ArrowUpRight className="size-3.5" />
+          </a>
         </div>
       </div>
 

@@ -26,7 +26,7 @@ export function SecurityPanel() {
   const rows: { k: string; v: string; d: string; kind: "active" | "demo"; go?: () => void }[] = [
     { k: "DDoS", v: "Protected", d: "Always-on L3–L7 mitigation", kind: "active" },
     { k: "WAF", v: "Active", d: "Custom rule + Cloudflare Managed Ruleset", kind: "active", go: () => navigate("/security") },
-    { k: "Rate limiting", v: "Active", d: "/api/orders · /headers — 5 req / 10 s per IP", kind: "active", go: () => navigate("/rate-limiting") },
+    { k: "Rate limiting", v: "Active", d: "POST /api/orders · /headers — 5 req / 10 s per IP", kind: "active", go: () => navigate("/rate-limiting") },
     { k: "Bot protection", v: "Demo", d: "Bot Management not configured on this plan", kind: "demo" },
     { k: "TLS", v: "Full (strict)", d: "Let's Encrypt origin certs, validated", kind: "active", go: () => navigate("/tls") },
   ];
@@ -115,12 +115,13 @@ export function ProductionReadinessPanel() {
 
 export function LiveEndpointsPanel() {
   const [copied, setCopied] = useState(false);
-  const loop = `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\\n" ${NOVA_URL}/api/orders; done`;
+  const loop = `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\\n" -X POST ${NOVA_URL}/api/orders -H "Content-Type: application/json" -d '{"symbol":"BTC-USDT","side":"buy","quantity":0.01}'; done`;
   const links: [string, string, string][] = [
     ["Public NOVA app", NOVA_URL, "nova.strikemap.space"],
     ["Request inspector", `${NOVA_URL}/headers`, "/headers"],
     ["Health check", `${NOVA_URL}/healthz`, "/healthz"],
-    ["Orders API (rate limited)", `${NOVA_URL}/api/orders`, "/api/orders"],
+    ["Demo orders (POST, rate limited)", `${NOVA_URL}/markets`, "POST /api/orders · /markets"],
+    ["API reference", `${NOVA_URL}/api`, "/api"],
     ["Staff portal (Access → Worker → Tunnel)", PORTAL_URL, "tunnel.strikemap.space/secure"],
   ];
   return (

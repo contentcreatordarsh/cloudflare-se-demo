@@ -1,49 +1,57 @@
 const { Router } = require("express");
 const { edgeInfo, esc } = require("../lib/edge");
+const { page } = require("../lib/layout");
 
 // GET /headers — every request header the origin received.
 //   curl / API clients (Accept: */* or application/json) -> JSON, exactly what reached the origin
-//   browsers (Accept: text/html)                         -> NOVA Request Inspector page (raw JSON included)
+//   browsers (Accept: text/html)                         -> NOVA Request Inspector (raw headers one click away)
 const router = Router();
 
-function page(req) {
+const item = (k, v) => `<div class="kv"><small>${k}</small><span>${v}</span></div>`;
+
+function inspector(req) {
   const e = edgeInfo(req);
-  const raw = JSON.stringify(req.headers, null, 2);
-  const rows = [
-    ["Request", `<span class="mono">${esc(req.method)} ${esc(req.originalUrl.split("?")[0])}</span>`],
-    ["Edge", e.proxied ? `${esc(e.city)} · <span class="mono">${esc(e.colo)}</span>` : "Not proxied (direct)"],
-    ["TLS", `Full (strict)${e.originTls ? ` · <span class="mono">${esc(e.originTls.replace("TLSv", "TLS "))}</span> edge → origin` : ""}`],
-    ["Cloudflare Ray ID", `<span class="mono accent">${esc(e.ray || "—")}</span>`],
-    ["Country", e.cc ? `${e.flag} ${esc(e.country || e.cc)} <span class="mono dim">${esc(e.cc)}</span>` : "—"],
-    ["Origin", "AWS EC2 · <span class=\"mono\">ap-southeast-1</span>"],
-    ["Status", '<span class="ok">200 OK</span>'],
-  ];
-  return `<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Request Inspector · NOVA</title>
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/styles.css">
-</head><body>
-<header class="bar"><a class="brand" href="/"><span class="mark"></span>NOVA</a><nav><a href="/headers" aria-current="page">Request Inspector</a><a href="https://tunnel.strikemap.space/secure">Staff Portal</a><a href="/healthz">System Health</a></nav></header>
-<main class="wrap narrow">
-  <p class="eyebrow">NOVA Request Inspector</p>
-  <h1 class="h2">What reached the origin</h1>
-  <p class="lede">This request travelled through Cloudflare to NOVA's origin on AWS EC2 in Singapore. Everything below is read from the request itself.</p>
-  <section class="card inspector">
-    ${rows.map(([k, v]) => `<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("")}
-  </section>
+  const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https").toUpperCase();
+  const left = [
+    item("Request", `<span class="mono"><b class="method get">${esc(req.method)}</b> ${esc(req.path)}</span>`),
+    item("Status", '<span class="ok">200 OK</span>'),
+    item("Edge", e.proxied ? `${esc(e.city)} · <span class="mono">${esc(e.colo)}</span>` : "Direct (not proxied)"),
+    item("TLS", `Full (strict)${e.originTls ? ` <span class="dim mono">${esc(e.originTls.replace("TLSv", "TLS "))} to origin</span>` : ""}`),
+    item("Origin", "AWS EC2"),
+    item("Region", '<span class="mono">ap-southeast-1</span>'),
+  ].join("");
+  const right = [
+    item("Ray ID", `<span class="mono accent">${esc(e.ray || "—")}</span>`),
+    item("Country", e.cc ? `${e.flag} ${esc(e.country || e.cc)}` : "—"),
+    item("Protocol", esc(proto)),
+    item("Proxy", e.proxied ? (e.viaTunnel ? "Cloudflare Tunnel" : "Cloudflare") : "None"),
+    item("Origin", "NOVA EC2"),
+  ].join("");
+  return page({
+    title: "Request Inspector · NOVA",
+    body: `
+<div class="wrap page">
+  <p class="kicker">Request inspector</p>
+  <h1 class="h1">See what reaches the NOVA origin.</h1>
+  <p class="lede">This request has travelled through the Cloudflare edge before reaching AWS. Every value below is read from the request itself.</p>
+  <div class="inspect">
+    <section class="card"><h2 class="kicker">Request</h2>${left}</section>
+    <section class="card cf"><h2 class="kicker">Cloudflare context</h2>${right}</section>
+  </div>
+  <ol class="path-line" aria-label="Request path">
+    <li>Browser</li><li class="hl">Cloudflare</li><li>TLS</li><li>Security controls</li><li>AWS</li><li class="mono">Node.js /headers</li>
+  </ol>
   <details class="card raw">
-    <summary>View raw headers <span class="dim">${Object.keys(req.headers).length} headers · also at <span class="mono">curl https://nova.strikemap.space/headers</span></span></summary>
-    <pre class="mono">${esc(raw)}</pre>
+    <summary>View raw headers <span class="dim">${Object.keys(req.headers).length} headers · same JSON as <span class="mono">curl https://nova.strikemap.space/headers</span></span></summary>
+    <pre class="mono">${esc(JSON.stringify(req.headers, null, 2))}</pre>
   </details>
-</main>
-</body></html>`;
+</div>`,
+  });
 }
 
 router.get("/headers", (req, res) => {
   const wantsHtml = req.query.format !== "json" && req.accepts(["application/json", "text/html"]) === "text/html";
-  if (wantsHtml) return res.type("html").send(page(req));
+  if (wantsHtml) return res.type("html").send(inspector(req));
   res.json(req.headers);
 });
 
