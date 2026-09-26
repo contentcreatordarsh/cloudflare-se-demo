@@ -230,13 +230,16 @@ router.get("/markets", async (req, res) => {
 
 router.get("/api", (req, res) => {
   const base = "https://nova.strikemap.space";
+  // The whole host sits behind Cloudflare Access (owner + @cloudflare.com), so terminal requests carry an Access token.
+  const auth = `-H "cf-access-token: $TOKEN"`;
+  const login = `cloudflared access login ${base}\nexport TOKEN=$(cloudflared access token -app=${base})`;
   const eps = [
-    ["GET", "/api/market", "Live reference prices for BTC, ETH, SOL, BNB, XRP and ADA: price, 24h change, 24h sparkline. Cached on the NOVA origin from CoinMarketCap; the upstream API key never leaves the server.", `curl ${base}/api/market`],
-    ["GET", "/headers", "Inspect the request received by the origin, including what Cloudflare added.", `curl ${base}/headers`],
-    ["GET", "/healthz", "Check origin health.", `curl ${base}/healthz`],
-    ["POST", "/api/orders", "Submit a demo order (never executed). Rate limited at the edge: 5 requests per 10 seconds.", `curl -X POST ${base}/api/orders -H "Content-Type: application/json" -d '{"symbol":"BTC-USDT","side":"buy","quantity":0.01}'`],
+    ["GET", "/api/market", "Live reference prices for BTC, ETH, SOL, BNB, XRP and ADA: price, 24h change, 24h sparkline. Cached on the NOVA origin from CoinMarketCap; the upstream API key never leaves the server.", `curl ${auth} ${base}/api/market`],
+    ["GET", "/headers", "Inspect the request received by the origin, including what Cloudflare added.", `curl ${auth} ${base}/headers`],
+    ["GET", "/healthz", "Check origin health.", `curl ${auth} ${base}/healthz`],
+    ["POST", "/api/orders", "Submit a demo order (never executed). Rate limited at the edge: 5 requests per 10 seconds.", `curl ${auth} -X POST ${base}/api/orders -H "Content-Type: application/json" -d '{"symbol":"BTC-USDT","side":"buy","quantity":0.01}'`],
   ];
-  const loop = `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\\n" -X POST ${base}/api/orders -H "Content-Type: application/json" -d '{"symbol":"BTC-USDT","side":"buy","quantity":0.01}'; done`;
+  const loop = `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\\n" ${auth} -X POST ${base}/api/orders -H "Content-Type: application/json" -d '{"symbol":"BTC-USDT","side":"buy","quantity":0.01}'; done`;
   res.send(page({
     title: "API · NOVA",
     active: "/api",
@@ -244,7 +247,12 @@ router.get("/api", (req, res) => {
 <div class="wrap page">
   <p class="kicker">NOVA API</p>
   <h1 class="h1">A deliberately small API</h1>
-  <div class="api-meta"><div><small>Base URL</small><span class="mono">${base}</span></div><div><small>Authentication</small>Demo only</div><div><small>Market data</small>CoinMarketCap</div><div><small>Environment</small>DEMO</div></div>
+  <div class="api-meta"><div><small>Base URL</small><span class="mono">${base}</span></div><div><small>Authentication</small>Cloudflare Access</div><div><small>Market data</small>CoinMarketCap</div><div><small>Environment</small>DEMO</div></div>
+  <section class="card ep">
+    <div class="ep-head"><span class="method get">AUTH</span><span class="mono path">Cloudflare Access token</span><span class="sim">Terminal only</span></div>
+    <p>Every NOVA host is protected by Cloudflare Access (owner + <b>@cloudflare.com</b>). Browsers sign in with a one-time PIN; from a terminal, get a token once with <span class="mono">cloudflared</span> (<span class="mono">brew install cloudflared</span>) and send it as <span class="mono">cf-access-token</span>.</p>
+    <div class="code"><code>${esc(login)}</code><button class="copy" data-copy="${esc(login)}" aria-label="Copy command">Copy</button></div>
+  </section>
   <section class="endpoints">
     ${eps.map(([m, p, d, c]) => `
     <article class="card ep">

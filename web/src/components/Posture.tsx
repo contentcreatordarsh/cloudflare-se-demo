@@ -115,7 +115,8 @@ export function ProductionReadinessPanel() {
 
 export function LiveEndpointsPanel() {
   const [copied, setCopied] = useState(false);
-  const loop = `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\\n" -X POST ${NOVA_URL}/api/orders -H "Content-Type: application/json" -d '{"symbol":"BTC-USDT","side":"buy","quantity":0.01}'; done`;
+  // nova.strikemap.space is behind Cloudflare Access: get TOKEN with `cloudflared access token -app=${NOVA_URL}`.
+  const loop = `for i in {1..10}; do curl -s -o /dev/null -w "%{http_code}\\n" -H "cf-access-token: $TOKEN" -X POST ${NOVA_URL}/api/orders -H "Content-Type: application/json" -d '{"symbol":"BTC-USDT","side":"buy","quantity":0.01}'; done`;
   const links: [string, string, string][] = [
     ["Public NOVA app", NOVA_URL, "nova.strikemap.space"],
     ["Request inspector", `${NOVA_URL}/headers`, "/headers"],
