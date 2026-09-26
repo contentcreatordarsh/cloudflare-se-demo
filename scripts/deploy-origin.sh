@@ -20,6 +20,17 @@ scp -q -i "$SSH_KEY" -o StrictHostKeyChecking=accept-new \
   origin/server.js origin/siampay.service origin/nginx-siampay.conf \
   "$CERT_DIR/fullchain.pem" "$CERT_DIR/privkey.pem" "ubuntu@$ORIGIN_IP:/tmp/"
 
+# CoinMarketCap key: read from the environment or ~/.cf-demo.env and written straight into a root-owned file on the
+# host over SSH stdin. It is never echoed, committed or shipped to browsers.
+CMC_KEY="${COINMARKETCAP_API_KEY:-$(sed -n -E 's/^(export )?COINMARKETCAP_API_KEY=//p' "$HOME/.cf-demo.env" 2>/dev/null | tail -1 | tr -d "\"' \r")}"
+if [ -n "$CMC_KEY" ]; then
+  printf 'COINMARKETCAP_API_KEY=%s\n' "$CMC_KEY" | $SSH 'id nova >/dev/null 2>&1 || sudo useradd --system --home /opt/nova --shell /usr/sbin/nologin nova; sudo install -d -m 0750 -o root -g nova /etc/nova && sudo tee /etc/nova/nova.env >/dev/null && sudo chown root:nova /etc/nova/nova.env && sudo chmod 0640 /etc/nova/nova.env'
+  echo "› market-data key installed on host"
+else
+  echo "› COINMARKETCAP_API_KEY not set — market data will show as unavailable"
+fi
+unset CMC_KEY
+
 echo "› installing"
 $SSH 'sudo bash -s' <<'REMOTE'
 set -euo pipefail
@@ -60,5 +71,6 @@ systemctl restart nova
 nginx -t 2>&1 | tail -1 && systemctl reload nginx
 sleep 1.5; curl -fsS http://127.0.0.1:8080/healthz >/dev/null && echo "✓ console API healthy"
 curl -fsS http://127.0.0.1:3000/healthz >/dev/null && echo "✓ NOVA app healthy"
+curl -fsS http://127.0.0.1:3000/api/market | python3 -c "import sys,json; m=json.load(sys.stdin); print(\"✓ market data:\", m[\"status\"], len(m[\"assets\"]), \"assets\")" || true
 test -f /var/www/siampay/dist/index.html && echo "✓ console deployed"
 REMOTE

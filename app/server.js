@@ -7,6 +7,7 @@ const path = require("path");
 const express = require("express");
 const { edgeInfo, esc } = require("./lib/edge");
 const { page } = require("./lib/layout");
+const market = require("./lib/market");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -38,6 +39,7 @@ app.get("/", (req, res, next) => (req.hostname.startsWith("tunnel.") ? res.redir
 app.use(require("./routes/health"));
 app.use(require("./routes/pages"));
 app.use(require("./routes/headers"));
+app.use(require("./routes/market"));
 app.use(require("./routes/orders"));
 app.use(require("./routes/staff"));
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", index: false }));
@@ -69,4 +71,5 @@ app.use((err, req, res, next) => {
   res.status(500).send(errorPage(req, { code: 500, title: "Temporary service error", text: "The NOVA origin could not process the request.", href: "/status", cta: "Check status" }));
 });
 
+market.start(); // CoinMarketCap cache: key from COINMARKETCAP_API_KEY, never sent to browsers
 app.listen(PORT, HOST, () => console.log(`nova-origin listening on ${HOST}:${PORT}`));

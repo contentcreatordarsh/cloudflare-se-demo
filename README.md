@@ -4,13 +4,14 @@
 Node.js service on **AWS EC2 in ap-southeast-1**; Cloudflare becomes the security and connectivity control plane
 around it.
 
-> NOVA is a made-up company used to frame the demo. No real trading, balances or market data.
+> NOVA is a made-up company used to frame the demo. Market prices are **real** (CoinMarketCap, via the origin);
+> trading is **simulated**: no real orders, balances or trading volume.
 
 ## URL map
 
 | Purpose | URL |
 |---|---|
-| **Public NOVA application** (Express on EC2) | https://nova.strikemap.space · [`/markets`](https://nova.strikemap.space/markets) · [`/api`](https://nova.strikemap.space/api) · [`/status`](https://nova.strikemap.space/status) · [`/headers`](https://nova.strikemap.space/headers) · [`/healthz`](https://nova.strikemap.space/healthz) · `POST /api/orders` |
+| **Public NOVA application** (Express on EC2) | https://nova.strikemap.space · [`/markets`](https://nova.strikemap.space/markets) · [`/api`](https://nova.strikemap.space/api) · [`/status`](https://nova.strikemap.space/status) · [`/headers`](https://nova.strikemap.space/headers) · [`/healthz`](https://nova.strikemap.space/healthz) · [`/api/market`](https://nova.strikemap.space/api/market) · `POST /api/orders` |
 | **Private staff application** (Access → Worker → Tunnel → EC2) | https://tunnel.strikemap.space · https://tunnel.strikemap.space/secure |
 | **NOVA Edge Console** (presentation layer) | https://app.strikemap.space |
 
@@ -47,6 +48,7 @@ around it.
 | Worker | `worker/src/index.js` — verifies the Access JWT, renders `${EMAIL} authenticated at ${TIMESTAMP} from ${COUNTRY}` (HTML), calls EC2 **through the Tunnel** for live origin/tunnel status (the origin re-verifies the JWT), `/secure/<CC>` streams the flag |
 | Private R2 | `nova-country-flags`, keys `SG.svg` …, no public access ([cloudflare/r2.md](cloudflare/r2.md)) |
 | Origin lockdown | Direct `http(s)://<origin-ip>` times out; apps listen on loopback only |
+| Live market data | `app/lib/market.js`: the origin calls CoinMarketCap `quotes/latest` (BTC, ETH, SOL, BNB, XRP, ADA), caches it (60 s while viewed, 15 min background samples for 24h sparklines, daily call budget) and serves a normalised `GET /api/market`. The key (`COINMARKETCAP_API_KEY`) lives only in `/etc/nova/nova.env` on the host; browsers never see it. On upstream failure the last real snapshot is shown as **Market data delayed**, never as live, and no replacement prices are generated |
 
 ## Seven-step live demo
 
@@ -84,7 +86,7 @@ scripts/      deploy-origin.sh (build + ship app, console, Nginx, certs), upload
 
 ```bash
 cd web && npm install && cd ..
-ORIGIN_IP=<elastic-ip> ./scripts/deploy-origin.sh      # app/ + console + Nginx + certs
+ORIGIN_IP=<elastic-ip> ./scripts/deploy-origin.sh      # app/ + console + Nginx + certs (+ COINMARKETCAP_API_KEY from env or ~/.cf-demo.env)
 cd worker && npx wrangler deploy                        # /secure Worker
 CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… ./scripts/upload-flags.sh
 ```

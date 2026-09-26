@@ -7,6 +7,11 @@ User=nova
 WorkingDirectory=/opt/nova
 ExecStart=/usr/bin/node /opt/nova/server.js
 Environment=HOST=127.0.0.1 PORT=3000 NODE_ENV=production
+# CoinMarketCap: COINMARKETCAP_API_KEY lives only in this root-owned file (0640 root:nova), never in the repo or browser.
+EnvironmentFile=-/etc/nova/nova.env
+# 15k credits/month plan: 450 calls/day cap; 60 s on-demand freshness; 15 min background samples for sparklines.
+Environment=MARKET_DAILY_CALLS=450 MARKET_TTL_SECONDS=60 MARKET_BACKGROUND_SECONDS=900 MARKET_HISTORY_FILE=/var/lib/nova/market-history.json
+StateDirectory=nova
 Restart=always
 NoNewPrivileges=true
 ProtectSystem=strict
