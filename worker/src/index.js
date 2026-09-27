@@ -60,8 +60,6 @@ const sgt = (sec) => {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}:${parts.second}` };
 };
 
-const CLEAR_STALE_CACHE_UNTIL = Date.parse("2026-10-04T00:00:00Z");
-
 // Opened on its own, a flag sits on the browser's white page, so white areas (e.g. the lower half of SG) vanish.
 // Frame it at the edge: pad the viewBox, add a neutral backdrop and a hairline outline, and nest the original
 // drawing in its own <svg> so anything outside its viewBox stays clipped. Still image/svg+xml.
@@ -92,6 +90,7 @@ async function originStatus(request, token) {
   try {
     const res = await fetch(new URL("/internal/staff-status", request.url), {
       headers: { "cf-access-jwt-assertion": token, cookie: request.headers.get("cookie") || "", accept: "application/json" },
+      signal: AbortSignal.timeout(5000), // never let a slow tunnel hold up the portal page
     });
     const ms = Date.now() - t0;
     if (!res.ok) return { ok: false, ms, error: `origin answered ${res.status}` };
@@ -223,13 +222,7 @@ export default {
     if (path === "/secure") {
       const status = await originStatus(request, token);
       return new Response(portal({ claims, country: request.cf?.country || "XX", status, env }), {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "private, no-store",
-          // Flags used to be cached for an hour; until this date the portal tells browsers to drop stale copies
-          // for this origin (cookies are untouched, so the Access session survives).
-          ...(Date.now() < CLEAR_STALE_CACHE_UNTIL ? { "clear-site-data": '"cache"' } : {}),
-        },
+        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "private, no-store" },
       });
     }
 
