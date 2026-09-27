@@ -60,6 +60,8 @@ const sgt = (sec) => {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}:${parts.second}` };
 };
 
+const CLEAR_STALE_CACHE_UNTIL = Date.parse("2026-10-04T00:00:00Z");
+
 // Opened on its own, a flag sits on the browser's white page, so white areas (e.g. the lower half of SG) vanish.
 // Frame it at the edge: pad the viewBox, add a neutral backdrop and a hairline outline, and nest the original
 // drawing in its own <svg> so anything outside its viewBox stays clipped. Still image/svg+xml.
@@ -221,7 +223,13 @@ export default {
     if (path === "/secure") {
       const status = await originStatus(request, token);
       return new Response(portal({ claims, country: request.cf?.country || "XX", status, env }), {
-        headers: { "content-type": "text/html; charset=utf-8", "cache-control": "private, no-store" },
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "cache-control": "private, no-store",
+          // Flags used to be cached for an hour; until this date the portal tells browsers to drop stale copies
+          // for this origin (cookies are untouched, so the Access session survives).
+          ...(Date.now() < CLEAR_STALE_CACHE_UNTIL ? { "clear-site-data": '"cache"' } : {}),
+        },
       });
     }
 
@@ -229,23 +237,17 @@ export default {
     if (match) {
       const cc = match[1].toUpperCase();
       const object = await env.FLAGS.get(`${cc}.svg`);
+      const raw = url.searchParams.get("raw") === "1";
+      const etag = raw ? object?.httpEtag : `"framed-${object?.etag}"`;
+      const cacheHeaders = { "cache-control": "private, no-cache", etag, "x-nova-source": "private-r2" };
+      if (object && request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers: cacheHeaders });
       if (!object) {
         return new Response(`No flag for ${cc}`, { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
       }
       // ?raw=1 returns the object exactly as stored in R2 (used by the portal page's own <img> tags).
-      if (url.searchParams.get("raw") === "1") {
-        return new Response(object.body, {
-          headers: { "content-type": "image/svg+xml", "cache-control": "private, max-age=3600", etag: object.httpEtag, "x-nova-source": "private-r2" },
-        });
-      }
+      if (raw) return new Response(object.body, { headers: { "content-type": "image/svg+xml", ...cacheHeaders } });
       return new Response(frameSvg(await object.text()), {
-        headers: {
-          "content-type": "image/svg+xml",
-          "cache-control": "private, max-age=3600",
-          etag: `"framed-${object.etag}"`,
-          "x-nova-source": "private-r2",
-          "x-nova-render": "framed at the edge; ?raw=1 for the stored object",
-        },
+        headers: { "content-type": "image/svg+xml", ...cacheHeaders, "x-nova-render": "framed at the edge; ?raw=1 for the stored object" },
       });
     }
 
