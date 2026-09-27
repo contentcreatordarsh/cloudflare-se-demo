@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <a href="https://nova.strikemap.space"><img src="docs/assets/btn-nova.png" alt="Open the NOVA app" width="235"></a>
-  <a href="https://app.strikemap.space"><img src="docs/assets/btn-console.png" alt="Open the Edge Console" width="235"></a>
-  <a href="https://tunnel.strikemap.space/secure"><img src="docs/assets/btn-staff.png" alt="Open the Staff Portal" width="235"></a>
-  <a href="docs/NOVA_Access_Guide.pdf"><img src="docs/assets/btn-guide.png" alt="Download the access guide (PDF)" width="235"></a>
+  <a href="https://nova.strikemap.space"><img src="docs/assets/btn-nova.png" alt="Open the NOVA app" width="200"></a>
+  <a href="https://app.strikemap.space"><img src="docs/assets/btn-console.png" alt="Open the Edge Console" width="200"></a>
+  <a href="https://tunnel.strikemap.space/secure"><img src="docs/assets/btn-staff.png" alt="Open the Staff Portal" width="200"></a>
+  <a href="docs/NOVA_Access_Guide.pdf"><img src="docs/assets/btn-guide.png" alt="Download the access guide (PDF)" width="200"></a>
 </p>
 
 > [!IMPORTANT]
@@ -156,7 +156,7 @@ Access identity token itself rather than trusting a header, and the server check
 
 **You should see** your country's flag, served by the Worker from the private bucket as `image/svg+xml`:
 
-<img src="r2/flags/SG.svg" alt="Singapore flag (SG.svg), the object stored in the private R2 bucket" width="120">
+<img src="r2/flags/sg.svg" alt="Singapore flag (SG.svg), the object stored in the private R2 bucket" width="120">
 
 ---
 
