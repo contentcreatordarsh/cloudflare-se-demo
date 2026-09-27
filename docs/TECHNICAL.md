@@ -302,7 +302,7 @@ curl -m 5 http://<origin-ip>      # → timeout
 | Route | Response |
 |---|---|
 | `GET /secure` | **HTML** page containing `EMAIL authenticated at TIMESTAMP from COUNTRY`, where `COUNTRY` is a link to `/secure/COUNTRY` |
-| `GET /secure/<CC>` | The flag, read from the private R2 bucket, `content-type: image/svg+xml` |
+| `GET /secure/<CC>` | The flag, read from the private R2 bucket, `content-type: image/svg+xml`. Framed at the edge (neutral backdrop + hairline outline) so white areas stay visible; `?raw=1` returns the stored object unchanged |
 | `GET /secure/whoami` | The verified identity as JSON (for the Edge Console, CORS-restricted to `app.strikemap.space`) |
 
 How it works:

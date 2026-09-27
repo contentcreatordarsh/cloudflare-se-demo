@@ -60,6 +60,25 @@ const sgt = (sec) => {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}:${parts.second}` };
 };
 
+// Opened on its own, a flag sits on the browser's white page, so white areas (e.g. the lower half of SG) vanish.
+// Frame it at the edge: pad the viewBox, add a neutral backdrop and a hairline outline, and nest the original
+// drawing in its own <svg> so anything outside its viewBox stays clipped. Still image/svg+xml.
+function frameSvg(svg) {
+  const open = svg.match(/<svg\b[^>]*>/);
+  const vb = open && open[0].match(/viewBox="\s*([-\d.]+)[\s,]+([-\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*"/);
+  const end = svg.lastIndexOf("</svg>");
+  if (!vb || end < open.index) return svg;
+  const [x, y, w, h] = vb.slice(1).map(Number);
+  const p = Math.max(w, h) * 0.08;
+  const stroke = Math.max(w, h) / 320;
+  const outer = open[0].replace(/\s(?:width|height)="[^"]*"/g, "").replace(/viewBox="[^"]*"/, `viewBox="${x - p} ${y - p} ${w + 2 * p} ${h + 2 * p}"`);
+  const inner = svg.slice(open.index + open[0].length, end);
+  return outer +
+    `<rect x="${x - p}" y="${y - p}" width="${w + 2 * p}" height="${h + 2 * p}" fill="#F1F3F6"/>` +
+    `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}">${inner}</svg>` +
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="#C3CAD3" stroke-width="${stroke}"/></svg>`;
+}
+
 let regionNames;
 const countryName = (cc) => {
   try { regionNames ??= new Intl.DisplayNames(["en"], { type: "region" }); return regionNames.of(cc) || cc; } catch { return cc; }
@@ -145,7 +164,7 @@ function portal({ claims, country, status, env }) {
       <h2>Session</h2>
       <div class="row"><span class="k">Identity</span><span class="v">${escapeHtml(claims.email)}<small>Cloudflare Access · JWT verified by Worker${o ? " and origin" : ""}</small></span></div>
       <div class="row"><span class="k">Authenticated at</span><span class="v mono">${escapeHtml(at.time)} SGT<small>${escapeHtml(at.date)}</small></span></div>
-      <div class="row"><span class="k">Location</span><span class="v flagrow">${escapeHtml(name)} <img src="${flagSrc}" alt="${escapeHtml(name)} flag"></span></div>
+      <div class="row"><span class="k">Location</span><span class="v flagrow">${escapeHtml(name)} <img src="${flagSrc}?raw=1" alt="${escapeHtml(name)} flag"></span></div>
       <div class="row"><span class="k">Access policy</span><span class="v">NOVA Staff<small>owner or any @cloudflare.com identity</small></span></div>
       <div class="row"><span class="k">Connection</span><span class="v">Cloudflare Tunnel<small>${tunnel ? `${tunnel.connections} edge connections · Worker → EC2 round trip ${status.ms} ms` : escapeHtml(status.error || "status unavailable")}</small></span></div>
       <div class="row"><span class="k">Origin</span><span class="v">AWS EC2<small>ap-southeast-1${o ? ` · ${escapeHtml(o.origin.host)} · Node ${escapeHtml(o.origin.node)}` : ""}</small></span></div>
@@ -160,7 +179,7 @@ function portal({ claims, country, status, env }) {
   </div>
 
   <section class="card r2">
-    <img src="${flagSrc}" alt="">
+    <img src="${flagSrc}?raw=1" alt="">
     <div>
       <div class="t">Private R2 object</div>
       <div class="mono" style="font-size:16px;margin-top:2px">${escapeHtml(cc)}.svg</div>
@@ -213,8 +232,20 @@ export default {
       if (!object) {
         return new Response(`No flag for ${cc}`, { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
       }
-      return new Response(object.body, {
-        headers: { "content-type": "image/svg+xml", "cache-control": "private, max-age=3600", etag: object.httpEtag, "x-nova-source": "private-r2" },
+      // ?raw=1 returns the object exactly as stored in R2 (used by the portal page's own <img> tags).
+      if (url.searchParams.get("raw") === "1") {
+        return new Response(object.body, {
+          headers: { "content-type": "image/svg+xml", "cache-control": "private, max-age=3600", etag: object.httpEtag, "x-nova-source": "private-r2" },
+        });
+      }
+      return new Response(frameSvg(await object.text()), {
+        headers: {
+          "content-type": "image/svg+xml",
+          "cache-control": "private, max-age=3600",
+          etag: `"framed-${object.etag}"`,
+          "x-nova-source": "private-r2",
+          "x-nova-render": "framed at the edge; ?raw=1 for the stored object",
+        },
       });
     }
 

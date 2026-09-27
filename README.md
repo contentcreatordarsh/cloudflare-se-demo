@@ -154,9 +154,11 @@ Access identity token itself rather than trusting a header, and the server check
 **Cloudflare:** Workers + R2 object storage (private bucket, no public URL)<br>
 **Open:** click the **country code** on the staff portal, e.g. **[tunnel.strikemap.space/secure/SG](https://tunnel.strikemap.space/secure/SG)**
 
-**You should see** your country's flag, served by the Worker from the private bucket as `image/svg+xml`:
+**You should see** your country's flag, read by the Worker from the private bucket and served as `image/svg+xml`. The
+Worker frames it on the way out, so white areas (like the lower half of Singapore's flag) stay visible on a white page.
+Add `?raw=1` to get the file exactly as stored in R2.
 
-<img src="r2/flags/sg.svg" alt="Singapore flag (SG.svg), the object stored in the private R2 bucket" width="120">
+<img src="docs/assets/flag-sg-framed.svg" alt="Singapore flag as served by the Worker from the private R2 bucket" width="260">
 
 ---
 
