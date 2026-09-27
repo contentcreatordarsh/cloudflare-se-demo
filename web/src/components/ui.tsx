@@ -3,20 +3,16 @@ import { Globe } from "lucide-react";
 import { flagUrl } from "../lib/format";
 
 export function Logo({ size = 34 }: { size?: number }) {
-  // Original NOVA mark: a cloud (edge network) carrying a data line, with a bright node on the rim.
+  // NOVA mark: the four-point star used across nova.strikemap.space.
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
       <defs>
-        <linearGradient id="lg-a" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ffab5e" />
-          <stop offset="1" stopColor="#f26b0f" />
+        <linearGradient id="nova-mark" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#ffb070" />
+          <stop offset="1" stopColor="#f6821f" />
         </linearGradient>
       </defs>
-      <path d="M6.5 27.5c0-4.1 3.2-7.4 7.2-7.5a9.2 9.2 0 0 1 17.6 2.4 5.3 5.3 0 0 1-.5 10.6H11.8a5.3 5.3 0 0 1-5.3-5.5Z" fill="url(#lg-a)" />
-      <path d="M14.5 28h10" stroke="#08090a" strokeWidth="2.6" strokeLinecap="round" />
-      <path d="M14.5 23.5h6" stroke="#08090a" strokeWidth="2.6" strokeLinecap="round" opacity=".55" />
-      <circle cx="31" cy="11" r="3" fill="#ff9d4d" />
-      <path d="M28.6 12.8 25 16.4" stroke="#ff9d4d" strokeWidth="1.5" strokeLinecap="round" opacity=".8" />
+      <path d="M20 3 23.8 16.2 37 20 23.8 23.8 20 37 16.2 23.8 3 20 16.2 16.2Z" fill="url(#nova-mark)" />
     </svg>
   );
 }

@@ -7,6 +7,7 @@
 //   GET /api/quote     demo trading API — same trace plus a mock quote (not market data)
 //   GET /api/status    live health: cloudflared readiness, origin + edge certificates
 //   GET /api/logs      last 100 requests that actually reached the origin
+//   GET /api/me        the signed-in viewer, from the Cloudflare Access JWT (signature verified here)
 const http = require("http");
 const fs = require("fs");
 const tls = require("tls");
@@ -88,7 +89,7 @@ function health() {
 
 /* ---------- request log: what actually reached the origin ---------- */
 const LOG = [];
-const QUIET = new Set(["/healthz", "/api/logs", "/api/status"]);
+const QUIET = new Set(["/healthz", "/api/logs", "/api/status", "/api/me"]);
 
 const mask = (ip) => {
   if (!ip) return null;
@@ -122,6 +123,33 @@ function trace(req, url, startedNs) {
 }
 
 const SECURITY_HEADERS = { "x-content-type-options": "nosniff", "referrer-policy": "strict-origin-when-cross-origin" };
+
+/* ---------- Cloudflare Access identity for the console (JWT verified, never trusted from a plain header) ---------- */
+const ACCESS_TEAM = process.env.ACCESS_TEAM_DOMAIN || "https://hegdedarsh.cloudflareaccess.com";
+const CONSOLE_AUD = process.env.CONSOLE_ACCESS_AUD || "dbbd66e1294b17d0cc5ced2cf0968f6ac1e5bbc4457657f1b32d7910104caef4";
+let jwks = { keys: [], at: 0 };
+async function signingKey(kid) {
+  let jwk = Date.now() - jwks.at < 600000 && jwks.keys.find((k) => k.kid === kid);
+  if (!jwk) {
+    const r = await fetch(`${ACCESS_TEAM}/cdn-cgi/access/certs`, { signal: AbortSignal.timeout(3000) });
+    jwks = { keys: (await r.json()).keys || [], at: Date.now() };
+    jwk = jwks.keys.find((k) => k.kid === kid);
+  }
+  if (!jwk) throw new Error("unknown signing key");
+  return crypto.createPublicKey({ key: jwk, format: "jwk" });
+}
+async function accessIdentity(token) {
+  const [h, p, sig] = String(token || "").split(".");
+  if (!h || !p || !sig) throw new Error("no Access token");
+  const header = JSON.parse(Buffer.from(h, "base64url"));
+  if (header.alg !== "RS256") throw new Error("unexpected alg");
+  if (!crypto.verify("RSA-SHA256", Buffer.from(`${h}.${p}`), await signingKey(header.kid), Buffer.from(sig, "base64url"))) throw new Error("bad signature");
+  const c = JSON.parse(Buffer.from(p, "base64url"));
+  const aud = Array.isArray(c.aud) ? c.aud : [c.aud];
+  if (c.iss !== ACCESS_TEAM || !aud.includes(CONSOLE_AUD)) throw new Error("wrong issuer/audience");
+  if (!c.exp || c.exp < Date.now() / 1000) throw new Error("token expired");
+  return { email: c.email || null, country: c.country || null, authenticatedAt: new Date(c.iat * 1000).toISOString(), expiresAt: new Date(c.exp * 1000).toISOString(), verified: "RS256 signature, issuer, audience, expiry" };
+}
 
 const server = http.createServer((req, res) => {
   const startedNs = process.hrtime.bigint();
@@ -176,6 +204,11 @@ const server = http.createServer((req, res) => {
       return send(200, { health: health(), tunnel: state.tunnel, originCert: state.originCert, edgeCert: state.edgeCert, serverTime: new Date().toISOString() });
     case "/api/logs":
       return send(200, LOG);
+    case "/api/me":
+      accessIdentity(req.headers["cf-access-jwt-assertion"])
+        .then((me) => send(200, me))
+        .catch((e) => send(401, { error: "no_verified_identity", detail: e.message }));
+      return;
     default:
       return send(404, { error: "not_found" });
   }

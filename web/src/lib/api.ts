@@ -133,5 +133,16 @@ export async function whoami(): Promise<Identity | null> {
   }
 }
 
+/** The signed-in viewer of this console, from its Access JWT (verified by the origin API). */
+export interface Me { email: string | null; country: string | null; authenticatedAt: string; expiresAt: string; verified: string }
+export async function getMe(): Promise<Me | null> {
+  try {
+    const r = await fetch("/api/me", { cache: "no-store", redirect: "manual", headers: { accept: "application/json" } });
+    return r.ok ? ((await r.json()) as Me) : null;
+  } catch {
+    return null;
+  }
+}
+
 export const PORTAL_URL = "https://tunnel.strikemap.space/secure";
 export const REPO_URL = "https://github.com/contentcreatordarsh/cloudflare-se-demo";

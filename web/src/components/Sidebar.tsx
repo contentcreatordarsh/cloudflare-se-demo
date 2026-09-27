@@ -39,7 +39,7 @@ export function Sidebar() {
       <a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }} className="flex h-[60px] items-center gap-2.5 border-b border-line px-4">
         <Logo size={36} />
         <span className="leading-tight">
-          <span className="block text-[17px] font-semibold tracking-[0.06em]">NOVA</span>
+          <span className="block text-[17px] font-extrabold tracking-[0.2em]">NOVA</span>
           <span className="block text-[12px] text-muted">Edge Console</span>
         </span>
       </a>

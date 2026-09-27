@@ -2,7 +2,7 @@ import { ArrowRight, Ban, ChartCandlestick, CircleCheck, CircleX, Cloud, Gauge, 
 import { useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent, type ReactNode } from "react";
 import { ago, coloCity, fmtMs, httpLabel, tlsLabel } from "../lib/format";
 import { navigate } from "../lib/router";
-import { useStore, verdictOf, type Journey } from "../lib/store";
+import { journeyFromEvent, journeyFromLog, useStore, type Journey } from "../lib/store";
 import { Dot, Flag, SectionHead, StatusCode } from "./ui";
 
 const coloOf = (ray: string | null) => (ray && ray.includes("-") ? ray.split("-").pop()!.toUpperCase() : null);
@@ -104,7 +104,7 @@ function Details({ j }: { j: Journey | null }) {
   const colo = j ? coloOf(j.ray) ?? j.edge?.colo ?? null : null;
   const o = j?.origin ?? null;
   const blocked = j?.blockedAt ?? null;
-  const country = j?.edge?.loc || o?.country || null;
+  const country = j?.edge?.loc || o?.country || j?.country || null;
   const box = "panel min-w-0 px-3 py-2";
   const head = "mb-1 flex items-center justify-between gap-1 text-[11.5px] font-semibold whitespace-nowrap";
   const failed = !!j && !blocked && j.status >= 400;
@@ -115,7 +115,7 @@ function Details({ j }: { j: Journey | null }) {
         <Line k="Ray ID" v={j?.ray ?? "—"} mono />
         <Line k="Country" v={country ? <span className="inline-flex items-center gap-1.5"><Flag cc={country} className="h-3 w-4" />{country}</span> : "—"} />
         <Line k="Edge" v={colo ? `${coloCity(colo)} (${colo})` : "—"} />
-        <Line k="Method · Path" v={j ? `GET ${j.path.split("?")[0]}` : "—"} mono />
+        <Line k="Method · Path" v={j ? `${j.method ?? "GET"} ${j.path.split("?")[0]}` : "—"} mono />
       </div>
       <div className={box}>
         <div className={head}>Security Checks</div>
@@ -156,7 +156,7 @@ export function JourneyPanel() {
     : { t: "Request Completed", tone: "ok" as const };
   return (
     <div className="panel flex min-w-0 flex-col gap-2.5 p-3">
-      <SectionHead n={2} title="Request Journey" sub="Live view of your request through Cloudflare to AWS."
+      <SectionHead n={2} title="Request Journey" sub={j?.note ?? "Live view of your request through Cloudflare to AWS."}
         right={
           <div className="flex flex-col items-end gap-0.5 text-[11.5px]">
             <span className={`inline-flex items-center gap-1.5 font-semibold ${pill.tone === "ok" ? "text-ok" : pill.tone === "bad" ? "text-bad" : pill.tone === "warn" ? "text-warn" : "text-muted"}`}><Dot tone={pill.tone} pulse={pill.tone === "ok"} />{pill.t}</span>
@@ -170,7 +170,7 @@ export function JourneyPanel() {
 }
 
 export function TracePanel() {
-  const { journey, events, logs, runExample, running, showJourney } = useStore();
+  const { journey, events, logs, edge, runExample, running, showJourney } = useStore();
   const [q, setQ] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const booted = useRef(false);
@@ -196,15 +196,10 @@ export function TracePanel() {
     const ev = events.find((e) => e.ray?.toLowerCase().includes(term));
     const lg = logs.find((l) => l.ray?.toLowerCase().includes(term));
     if (journey?.ray?.toLowerCase().includes(term)) { setMsg(null); return; }
-    const hit = ev ?? lg;
-    if (!hit) { setMsg("Not found. Blocked requests never reach the origin log — pick a recent request below."); return; }
+    if (!ev && !lg) { setMsg("Not found. Blocked requests never reach the origin log — pick a recent request below."); return; }
     setMsg(null);
-    const v = verdictOf(hit.status);
-    showJourney({
-      kind: v === "blocked_waf" ? "waf" : v === "rate_limited" ? "ratelimit" : "normal",
-      at: hit.t, path: hit.path, status: hit.status, ray: hit.ray, totalMs: hit.ms, edge: null, origin: null,
-      blockedAt: v === "blocked_waf" ? "waf" : v === "rate_limited" ? "ratelimit" : null, originMs: null, source: "log",
-    });
+    // A request from this browser replays with everything we recorded; otherwise use the origin's own log entry.
+    showJourney(ev ? journeyFromEvent(ev, edge) : journeyFromLog(lg!));
   };
 
   const submit = (e: FormEvent) => {
